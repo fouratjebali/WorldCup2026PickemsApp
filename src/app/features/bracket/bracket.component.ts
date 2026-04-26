@@ -185,6 +185,7 @@ export class BracketComponent implements OnInit {
   readonly bracketMatchesByStage = computed(() => this.buildBracketMatchesByStage());
   readonly currentStage = computed(() => this.knockoutStages[this.currentStageIndex()] ?? this.knockoutStages[0]);
   readonly currentStageMatches = computed(() => this.bracketMatches(this.currentStage()));
+  readonly thirdPlaceAssignments = computed(() => this.buildThirdPlaceAssignments());
   readonly champion = computed(() => {
     const final = this.allMatches().find((match) => match.stage === 'Final');
     return final ? this.selections()[final.id] ?? '' : '';
@@ -383,7 +384,6 @@ export class BracketComponent implements OnInit {
       accumulator[stage] = [];
       return accumulator;
     }, {});
-    const assignedThirdPlaceTeams = new Set<string>();
 
     for (const stage of this.knockoutStages) {
       const stageMatches = this.allMatches()
@@ -391,8 +391,8 @@ export class BracketComponent implements OnInit {
         .sort((a, b) => a.match_number - b.match_number);
 
       for (const match of stageMatches) {
-        const homeTeam = this.resolveSlot(match.home_team, stages, assignedThirdPlaceTeams);
-        const awayTeam = this.resolveSlot(match.away_team, stages, assignedThirdPlaceTeams);
+        const homeTeam = this.resolveSlot(match.home_team, stages);
+        const awayTeam = this.resolveSlot(match.away_team, stages);
 
         stages[stage].push({
           match,
@@ -408,6 +408,66 @@ export class BracketComponent implements OnInit {
     }
 
     return stages;
+  }
+
+  private buildThirdPlaceAssignments(): Record<string, string> {
+    const thirdSlots = this.allMatches()
+      .filter((match) => match.stage === 'Round of 32')
+      .sort((a, b) => a.match_number - b.match_number)
+      .flatMap((match) => [match.home_team, match.away_team])
+      .filter((slot) => slot.startsWith('Third Group '));
+    const thirdTeams = this.bestThirdTeams();
+    const slotsByFewestOptions = [...thirdSlots].sort((a, b) => this.thirdSlotLetters(a).length - this.thirdSlotLetters(b).length);
+    const assignments: Record<string, string> = {};
+    const usedTeams = new Set<string>();
+
+    const assign = (slotIndex: number): boolean => {
+      if (slotIndex >= slotsByFewestOptions.length) {
+        return true;
+      }
+
+      const slot = slotsByFewestOptions[slotIndex];
+      const letters = this.thirdSlotLetters(slot);
+      const options = thirdTeams.filter(
+        (standing) => letters.includes(standing.group.replace('Group ', '')) && !usedTeams.has(standing.team),
+      );
+
+      for (const option of options) {
+        assignments[slot] = option.team;
+        usedTeams.add(option.team);
+
+        if (assign(slotIndex + 1)) {
+          return true;
+        }
+
+        usedTeams.delete(option.team);
+        delete assignments[slot];
+      }
+
+      return false;
+    };
+
+    const fullyAssigned = assign(0);
+
+    if (!fullyAssigned) {
+      for (const slot of thirdSlots) {
+        if (assignments[slot]) {
+          continue;
+        }
+
+        const letters = this.thirdSlotLetters(slot);
+        const fallback =
+          thirdTeams.find((standing) => letters.includes(standing.group.replace('Group ', '')) && !usedTeams.has(standing.team)) ??
+          thirdTeams.find((standing) => !usedTeams.has(standing.team));
+
+        if (fallback) {
+          assignments[slot] = fallback.team;
+          usedTeams.add(fallback.team);
+        }
+      }
+    }
+
+    return assignments;
   }
 
   private buildGroupStandings(): GroupStanding[] {
@@ -472,20 +532,11 @@ export class BracketComponent implements OnInit {
       .slice(0, 8);
   }
 
-  private thirdTeamForSlot(slot: string, assignedThirdPlaceTeams: Set<string>): string {
-    const candidates = slot.replace('Third Group ', '').split('/');
-    const third = this.bestThirdTeams().find(
-      (standing) => candidates.includes(standing.group.replace('Group ', '')) && !assignedThirdPlaceTeams.has(standing.team),
-    );
-
-    if (third) {
-      assignedThirdPlaceTeams.add(third.team);
-    }
-
-    return third?.team ?? slot;
+  private thirdSlotLetters(slot: string): string[] {
+    return slot.replace('Third Group ', '').split('/');
   }
 
-  private resolveSlot(slot: string, stages: Record<string, BracketMatch[]>, assignedThirdPlaceTeams: Set<string>): string {
+  private resolveSlot(slot: string, stages: Record<string, BracketMatch[]>): string {
     const groupWinner = /^Winner Group ([A-L])$/.exec(slot);
     if (groupWinner) {
       return this.groupRank(`Group ${groupWinner[1]}`, 1);
@@ -497,7 +548,7 @@ export class BracketComponent implements OnInit {
     }
 
     if (slot.startsWith('Third Group ')) {
-      return this.thirdTeamForSlot(slot, assignedThirdPlaceTeams);
+      return this.thirdPlaceAssignments()[slot] ?? slot;
     }
 
     const matchWinner = /^Winner Match (\d+)$/.exec(slot);
