@@ -62,6 +62,7 @@ import { RoomService } from '../../core/services/room.service';
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
                   <a class="btn-primary" [routerLink]="['/pickems']" [queryParams]="{ roomId: room.id }">Room picks</a>
+                  <a class="btn-secondary" [routerLink]="['/bracket']" [queryParams]="{ roomId: room.id }">Bracket</a>
                   <a class="btn-secondary" [routerLink]="['/leaderboard']" [queryParams]="{ roomId: room.id }">Leaderboard</a>
                 </div>
               </article>

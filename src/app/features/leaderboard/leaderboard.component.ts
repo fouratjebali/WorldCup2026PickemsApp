@@ -33,18 +33,17 @@ import { RoomService } from '../../core/services/room.service';
         <div class="page-card border-red-300/30 bg-red-400/10 text-red-100">{{ error() }}</div>
       } @else {
         <div class="overflow-hidden rounded-lg border border-white/10 bg-white/[0.06]">
-          <div class="grid grid-cols-[56px_1fr_80px_80px_80px] gap-3 border-b border-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+          <div class="grid grid-cols-[56px_1fr_90px_90px] gap-3 border-b border-white/10 px-4 py-3 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
             <span>Rank</span>
             <span>Player</span>
             <span class="text-right">Points</span>
-            <span class="text-right">Winners</span>
-            <span class="text-right">Exact</span>
+            <span class="text-right">Correct</span>
           </div>
           @if (!entries().length) {
             <p class="p-4 text-slate-300">No leaderboard entries yet.</p>
           } @else {
             @for (entry of entries(); track entry.id; let index = $index) {
-              <div class="grid grid-cols-[56px_1fr_80px_80px_80px] gap-3 border-b border-white/5 px-4 py-3 last:border-b-0">
+              <div class="grid grid-cols-[56px_1fr_90px_90px] gap-3 border-b border-white/5 px-4 py-3 last:border-b-0">
                 <span class="font-black text-emerald-200">#{{ index + 1 }}</span>
                 <span class="min-w-0">
                   <span class="block truncate font-bold text-white">{{ entry.player?.nickname || 'Player' }}</span>
@@ -52,7 +51,6 @@ import { RoomService } from '../../core/services/room.service';
                 </span>
                 <span class="text-right font-black">{{ entry.total_points }}</span>
                 <span class="text-right">{{ entry.correct_winners }}</span>
-                <span class="text-right">{{ entry.exact_scores }}</span>
               </div>
             }
           }

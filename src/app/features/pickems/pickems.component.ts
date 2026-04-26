@@ -1,133 +1,190 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Match } from '../../core/models/match.model';
 import { Pickem } from '../../core/models/pickem.model';
 import { Player } from '../../core/models/player.model';
-import { Room } from '../../core/models/room.model';
 import { MatchService } from '../../core/services/match.service';
 import { PickemsService } from '../../core/services/pickems.service';
 import { PlayerService } from '../../core/services/player.service';
-import { RoomService } from '../../core/services/room.service';
 
-interface PredictionDraft {
-  homeScore: number | null;
-  awayScore: number | null;
-  saving: boolean;
-  saved: boolean;
+interface TeamStanding {
+  team: string;
+  played: number;
+  wins: number;
+  points: number;
 }
 
 @Component({
   selector: 'app-pickems',
-  imports: [DatePipe, FormsModule, RouterLink],
+  imports: [RouterLink],
   template: `
     <section class="space-y-6">
       <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
-          <p class="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">Pickems</p>
-          <h1 class="mt-2 text-4xl font-black text-white">Predict the road to the final</h1>
+          <p class="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">Group picks</p>
+          <h1 class="mt-2 text-4xl font-black text-white">Pick every group winner</h1>
           <p class="mt-3 max-w-2xl leading-7 text-slate-300">
-            Scores can be changed until kickoff or until the match status is no longer scheduled.
+            Choose one winner per match. The selected team turns green, the other team turns red, and the group table
+            updates immediately. Saved groups are locked.
           </p>
         </div>
-        @if (room()) {
-          <div class="page-card py-3">
-            <p class="text-sm text-slate-400">Room picks</p>
-            <p class="font-black">{{ room()?.name }} · {{ room()?.code }}</p>
-          </div>
-        }
+
+        <div class="page-card py-3">
+          <p class="text-sm text-slate-400">Progress</p>
+          <p class="font-black">{{ savedGroupCount() }} / {{ groups().length }} groups saved</p>
+        </div>
       </div>
 
       @if (loading()) {
-        <div class="page-card">Loading matches and saved picks...</div>
+        <div class="page-card">Loading group matches...</div>
       } @else if (error()) {
         <div class="page-card border-red-300/30 bg-red-400/10 text-red-100">
           {{ error() }}
           <a routerLink="/onboarding" class="mt-3 block font-bold underline">Create or update profile</a>
         </div>
       } @else {
-        @for (stage of stages; track stage) {
-          @if (stageMatches(stage).length) {
-            <div class="space-y-3">
-              <h2 class="text-2xl font-black text-white">{{ stage }}</h2>
-              <div class="grid gap-3">
-                @for (match of stageMatches(stage); track match.id) {
-                  <article class="page-card">
-                    <div class="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
-                      <div>
-                        <div class="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
-                          <span>Match {{ match.match_number }}</span>
-                          @if (match.group_name) {
-                            <span>{{ match.group_name }}</span>
-                          }
-                          <span [class]="isLocked(match) ? 'text-red-200' : 'text-emerald-200'">
-                            {{ isLocked(match) ? 'Locked' : 'Open' }}
-                          </span>
-                        </div>
-                        <div class="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                          <p class="font-black text-white">{{ match.home_team }}</p>
-                          <span class="rounded-md bg-white/10 px-2 py-1 text-xs font-black text-slate-300">vs</span>
-                          <p class="text-right font-black text-white">{{ match.away_team }}</p>
-                        </div>
-                        @if (match.kickoff_at) {
-                          <p class="mt-2 text-sm text-slate-400">{{ match.kickoff_at | date: 'medium' }}</p>
-                        }
-                      </div>
-
-                      <div class="grid gap-3 sm:grid-cols-[76px_76px_auto] sm:items-end">
-                        <label class="space-y-1">
-                          <span class="text-xs font-bold text-slate-400">Home</span>
-                          <input
-                            class="field text-center"
-                            type="number"
-                            min="0"
-                            max="20"
-                            [disabled]="isLocked(match)"
-                            [(ngModel)]="drafts[match.id].homeScore"
-                          />
-                        </label>
-                        <label class="space-y-1">
-                          <span class="text-xs font-bold text-slate-400">Away</span>
-                          <input
-                            class="field text-center"
-                            type="number"
-                            min="0"
-                            max="20"
-                            [disabled]="isLocked(match)"
-                            [(ngModel)]="drafts[match.id].awayScore"
-                          />
-                        </label>
-                        <button class="btn-primary" type="button" [disabled]="isLocked(match) || drafts[match.id].saving" (click)="save(match)">
-                          {{ drafts[match.id].saving ? 'Saving...' : drafts[match.id].saved ? 'Saved' : 'Save' }}
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                }
-              </div>
-            </div>
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          @for (group of groups(); track group; let index = $index) {
+            <button
+              type="button"
+              class="min-w-24 rounded-md px-3 py-2 text-sm font-black transition"
+              [class.bg-emerald-400]="isCurrentGroup(index)"
+              [class.text-slate-950]="isCurrentGroup(index)"
+              [class.bg-white]="!isCurrentGroup(index) && isGroupSaved(group)"
+              [class.text-slate-950]="!isCurrentGroup(index) && isGroupSaved(group)"
+              [class.bg-white/10]="!isCurrentGroup(index) && !isGroupSaved(group)"
+              [class.text-slate-200]="!isCurrentGroup(index) && !isGroupSaved(group)"
+              (click)="goToGroup(index)"
+            >
+              {{ group.replace('Group ', '') }}
+            </button>
           }
-        }
+        </div>
+
+        <div class="grid gap-5 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+          <div class="space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h2 class="text-3xl font-black text-white">{{ currentGroup() }}</h2>
+                <p class="mt-1 text-sm text-slate-400">
+                  {{ selectedCount(currentGroup()) }} / {{ currentGroupMatches().length }} matches picked
+                </p>
+              </div>
+              @if (isGroupSaved(currentGroup())) {
+                <span class="rounded-md bg-emerald-400 px-3 py-2 text-sm font-black text-slate-950">Saved</span>
+              }
+            </div>
+
+            @for (match of currentGroupMatches(); track match.id) {
+              <article class="page-card">
+                <div class="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                  <span>Match {{ match.match_number }}</span>
+                  <span>{{ isMatchLocked(match) ? 'Locked' : 'Choose winner' }}</span>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                  <button
+                    type="button"
+                    [class]="teamButtonClass(match, match.home_team)"
+                    [disabled]="isMatchLocked(match)"
+                    (click)="selectWinner(match, match.home_team)"
+                  >
+                    {{ match.home_team }}
+                  </button>
+
+                  <span class="hidden rounded-md bg-white/10 px-3 py-2 text-center text-xs font-black text-slate-300 sm:block">
+                    VS
+                  </span>
+
+                  <button
+                    type="button"
+                    [class]="teamButtonClass(match, match.away_team)"
+                    [disabled]="isMatchLocked(match)"
+                    (click)="selectWinner(match, match.away_team)"
+                  >
+                    {{ match.away_team }}
+                  </button>
+                </div>
+              </article>
+            }
+
+            <div class="page-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="font-black text-white">{{ currentGroup() }} status</p>
+                <p class="mt-1 text-sm text-slate-400">
+                  Save this group when every match has a selected winner. You cannot edit it afterward.
+                </p>
+              </div>
+
+              @if (allGroupsSaved()) {
+                <a class="btn-primary" routerLink="/bracket" [queryParams]="roomId ? { roomId: roomId } : null">Go to bracket</a>
+              } @else if (isGroupSaved(currentGroup())) {
+                <button class="btn-primary" type="button" (click)="goToNextGroup()">Next group</button>
+              } @else {
+                <button class="btn-primary" type="button" [disabled]="!canSaveCurrentGroup() || saving()" (click)="saveCurrentGroup()">
+                  {{ saving() ? 'Saving...' : 'Save group' }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <aside class="page-card sticky top-6">
+            <div class="flex items-center justify-between gap-3">
+              <h2 class="text-2xl font-black text-white">{{ currentGroup() }} table</h2>
+              <span class="rounded-md bg-white/10 px-2 py-1 text-xs font-black text-slate-300">Live</span>
+            </div>
+
+            <div class="mt-4 overflow-hidden rounded-lg border border-white/10">
+              <div class="grid grid-cols-[40px_1fr_52px_52px_52px] gap-2 bg-slate-950/80 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                <span>#</span>
+                <span>Team</span>
+                <span class="text-right">P</span>
+                <span class="text-right">W</span>
+                <span class="text-right">Pts</span>
+              </div>
+
+              @for (standing of currentStandings(); track standing.team; let index = $index) {
+                <div
+                  class="grid grid-cols-[40px_1fr_52px_52px_52px] gap-2 border-t border-white/5 px-3 py-3"
+                  [class.bg-emerald-400/10]="index < 2"
+                  [class.bg-amber-300/10]="index === 2"
+                >
+                  <span class="font-black" [class.text-emerald-200]="index < 2" [class.text-amber-200]="index === 2">
+                    {{ index + 1 }}
+                  </span>
+                  <span class="truncate font-bold text-white">{{ standing.team }}</span>
+                  <span class="text-right text-slate-300">{{ standing.played }}</span>
+                  <span class="text-right text-slate-300">{{ standing.wins }}</span>
+                  <span class="text-right font-black text-white">{{ standing.points }}</span>
+                </div>
+              }
+            </div>
+
+            <p class="mt-4 text-sm leading-6 text-slate-400">
+              The top two teams qualify automatically. The bracket also uses the best eight third-place teams.
+            </p>
+          </aside>
+        </div>
       }
     </section>
   `,
 })
 export class PickemsComponent implements OnInit {
   readonly loading = signal(true);
+  readonly saving = signal(false);
   readonly error = signal('');
   readonly player = signal<Player | null>(null);
-  readonly room = signal<Room | null>(null);
-  readonly stages = ['Group stage', 'Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Third-place match', 'Final'];
   readonly matches = signal<Match[]>([]);
-  drafts: Record<string, PredictionDraft> = {};
-  private roomId: string | null = null;
+  readonly groups = signal<string[]>([]);
+  readonly currentGroupIndex = signal(0);
+  readonly selections = signal<Record<string, string>>({});
+  readonly lockedMatchIds = signal<string[]>([]);
+  roomId: string | null = null;
 
   constructor(
     private readonly playerService: PlayerService,
     private readonly matchService: MatchService,
     private readonly pickemsService: PickemsService,
-    private readonly roomService: RoomService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
   ) {}
@@ -147,76 +204,176 @@ export class PickemsComponent implements OnInit {
         this.matchService.listMatches(),
         this.pickemsService.listPlayerPickems(player.id, this.roomId),
       ]);
+      const groupMatches = matches.filter((match) => match.stage === 'Group stage' && match.group_name);
 
-      if (this.roomId) {
-        this.room.set(await this.roomService.getRoom(this.roomId));
-      }
-
-      this.matches.set(matches);
-      this.hydrateDrafts(matches, pickems);
+      this.matches.set(groupMatches);
+      this.groups.set([...new Set(groupMatches.map((match) => match.group_name!))].sort());
+      this.hydrateSelections(pickems);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load pickems.');
+      this.error.set(error instanceof Error ? error.message : 'Could not load group picks.');
     } finally {
       this.loading.set(false);
     }
   }
 
-  stageMatches(stage: string): Match[] {
-    return this.matches().filter((match) => match.stage === stage);
+  currentGroup(): string {
+    return this.groups()[this.currentGroupIndex()] ?? '';
   }
 
-  isLocked(match: Match): boolean {
-    return this.matchService.isLocked(match);
+  currentGroupMatches(): Match[] {
+    return this.matchesForGroup(this.currentGroup());
   }
 
-  async save(match: Match): Promise<void> {
-    const player = this.player();
-    const draft = this.drafts[match.id];
+  currentStandings(): TeamStanding[] {
+    return this.calculateStandings(this.currentGroup());
+  }
 
-    if (!player || this.isLocked(match) || draft.homeScore === null || draft.awayScore === null) {
+  goToGroup(index: number): void {
+    this.currentGroupIndex.set(index);
+  }
+
+  goToNextGroup(): void {
+    const next = Math.min(this.currentGroupIndex() + 1, this.groups().length - 1);
+    this.currentGroupIndex.set(next);
+  }
+
+  isCurrentGroup(index: number): boolean {
+    return this.currentGroupIndex() === index;
+  }
+
+  selectWinner(match: Match, team: string): void {
+    if (this.isMatchLocked(match)) {
       return;
     }
 
-    draft.saving = true;
+    this.selections.update((current) => ({ ...current, [match.id]: team }));
+  }
+
+  teamButtonClass(match: Match, team: string): string {
+    const selected = this.selections()[match.id];
+    const base =
+      'min-h-16 rounded-lg border px-4 py-3 text-left font-black transition disabled:cursor-not-allowed disabled:opacity-80';
+
+    if (selected === team) {
+      return `${base} border-emerald-300 bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-950/30`;
+    }
+
+    if (selected) {
+      return `${base} border-red-300/30 bg-red-400/15 text-red-100`;
+    }
+
+    return `${base} border-white/10 bg-slate-950/70 text-white hover:border-emerald-300/60 hover:bg-white/10`;
+  }
+
+  isMatchLocked(match: Match): boolean {
+    return this.lockedMatchIds().includes(match.id) || this.matchService.isLocked(match);
+  }
+
+  isGroupSaved(group: string): boolean {
+    const matches = this.matchesForGroup(group);
+    return matches.length > 0 && matches.every((match) => this.lockedMatchIds().includes(match.id));
+  }
+
+  selectedCount(group: string): number {
+    return this.matchesForGroup(group).filter((match) => this.selections()[match.id]).length;
+  }
+
+  savedGroupCount(): number {
+    return this.groups().filter((group) => this.isGroupSaved(group)).length;
+  }
+
+  allGroupsSaved(): boolean {
+    return this.groups().length > 0 && this.savedGroupCount() === this.groups().length;
+  }
+
+  canSaveCurrentGroup(): boolean {
+    const group = this.currentGroup();
+    const matches = this.matchesForGroup(group);
+    return !this.isGroupSaved(group) && matches.length > 0 && matches.every((match) => this.selections()[match.id]);
+  }
+
+  async saveCurrentGroup(): Promise<void> {
+    const player = this.player();
+    if (!player || !this.canSaveCurrentGroup() || this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
     this.error.set('');
 
     try {
-      await this.pickemsService.savePickem({
-        playerId: player.id,
-        roomId: this.roomId,
-        matchId: match.id,
-        predictedHomeScore: Number(draft.homeScore),
-        predictedAwayScore: Number(draft.awayScore),
-        predictedWinnerTeam: this.predictedWinner(match, Number(draft.homeScore), Number(draft.awayScore)),
-      });
-      draft.saved = true;
+      const matches = this.currentGroupMatches();
+      await this.pickemsService.savePickems(
+        matches.map((match) => ({
+          playerId: player.id,
+          roomId: this.roomId,
+          matchId: match.id,
+          predictedHomeScore: null,
+          predictedAwayScore: null,
+          predictedWinnerTeam: this.selections()[match.id],
+          locked: true,
+        })),
+      );
+
+      this.lockedMatchIds.update((ids) => [...new Set([...ids, ...matches.map((match) => match.id)])]);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not save pick.');
+      this.error.set(error instanceof Error ? error.message : 'Could not save this group. Please retry.');
     } finally {
-      draft.saving = false;
+      this.saving.set(false);
     }
   }
 
-  private hydrateDrafts(matches: Match[], pickems: Pickem[]): void {
-    const pickemsByMatchId = new Map(pickems.map((pickem) => [pickem.match_id, pickem]));
-
-    this.drafts = matches.reduce<Record<string, PredictionDraft>>((drafts, match) => {
-      const pickem = pickemsByMatchId.get(match.id);
-      drafts[match.id] = {
-        homeScore: pickem?.predicted_home_score ?? null,
-        awayScore: pickem?.predicted_away_score ?? null,
-        saving: false,
-        saved: Boolean(pickem),
-      };
-      return drafts;
-    }, {});
+  private matchesForGroup(group: string): Match[] {
+    return this.matches()
+      .filter((match) => match.group_name === group)
+      .sort((a, b) => a.match_number - b.match_number);
   }
 
-  private predictedWinner(match: Match, homeScore: number, awayScore: number): string {
-    if (homeScore === awayScore) {
-      return 'Draw';
+  private calculateStandings(group: string): TeamStanding[] {
+    const table = new Map<string, TeamStanding>();
+    const ensureTeam = (team: string): TeamStanding => {
+      if (!table.has(team)) {
+        table.set(team, { team, played: 0, wins: 0, points: 0 });
+      }
+
+      return table.get(team)!;
+    };
+
+    for (const match of this.matchesForGroup(group)) {
+      const home = ensureTeam(match.home_team);
+      const away = ensureTeam(match.away_team);
+      const winner = this.selections()[match.id];
+
+      if (!winner) {
+        continue;
+      }
+
+      home.played += 1;
+      away.played += 1;
+
+      const winningTeam = ensureTeam(winner);
+      winningTeam.wins += 1;
+      winningTeam.points += 3;
     }
 
-    return homeScore > awayScore ? match.home_team : match.away_team;
+    return [...table.values()].sort((a, b) => b.points - a.points || b.wins - a.wins || a.team.localeCompare(b.team));
+  }
+
+  private hydrateSelections(pickems: Pickem[]): void {
+    const selections: Record<string, string> = {};
+    const lockedIds: string[] = [];
+
+    for (const pickem of pickems) {
+      if (pickem.predicted_winner_team) {
+        selections[pickem.match_id] = pickem.predicted_winner_team;
+      }
+
+      if (pickem.locked) {
+        lockedIds.push(pickem.match_id);
+      }
+    }
+
+    this.selections.set(selections);
+    this.lockedMatchIds.set(lockedIds);
   }
 }

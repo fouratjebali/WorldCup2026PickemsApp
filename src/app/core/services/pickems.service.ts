@@ -9,6 +9,7 @@ export interface PickemDraft {
   predictedHomeScore: number | null;
   predictedAwayScore: number | null;
   predictedWinnerTeam: string | null;
+  locked?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -40,6 +41,7 @@ export class PickemsService {
           predicted_home_score: draft.predictedHomeScore,
           predicted_away_score: draft.predictedAwayScore,
           predicted_winner_team: draft.predictedWinnerTeam,
+          locked: draft.locked ?? false,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'player_id,room_id,match_id' },
@@ -52,5 +54,34 @@ export class PickemsService {
     }
 
     return data as Pickem;
+  }
+
+  async savePickems(drafts: PickemDraft[]): Promise<Pickem[]> {
+    if (!drafts.length) {
+      return [];
+    }
+
+    const { data, error } = await this.supabase.client
+      .from('pickems')
+      .upsert(
+        drafts.map((draft) => ({
+          player_id: draft.playerId,
+          room_id: draft.roomId,
+          match_id: draft.matchId,
+          predicted_home_score: draft.predictedHomeScore,
+          predicted_away_score: draft.predictedAwayScore,
+          predicted_winner_team: draft.predictedWinnerTeam,
+          locked: draft.locked ?? false,
+          updated_at: new Date().toISOString(),
+        })),
+        { onConflict: 'player_id,room_id,match_id' },
+      )
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data ?? []) as Pickem[];
   }
 }

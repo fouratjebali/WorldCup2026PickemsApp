@@ -105,11 +105,10 @@ create trigger pickems_touch_updated_at
 before update on pickems
 for each row execute function touch_updated_at();
 
--- Scoring:
--- Exact score: 5 points.
--- Correct winner or draw: 3 points.
--- Correct goal difference: 1 bonus point.
--- Wrong prediction: 0 points.
+-- Scoring for the current winner-only UI:
+-- Correct winner: 3 points.
+-- Wrong winner: 0 points.
+-- Score columns stay nullable so a future score-prediction mode can be added without changing the table shape.
 create or replace function calculate_points_for_match(p_match_id uuid)
 returns void
 language plpgsql
@@ -139,12 +138,7 @@ begin
   update pickems
   set
     points = case
-      when predicted_home_score = actual_home and predicted_away_score = actual_away then 5
-      when predicted_winner_team = actual_winner then
-        3 + case
-          when (predicted_home_score - predicted_away_score) = (actual_home - actual_away) then 1
-          else 0
-        end
+      when predicted_winner_team = actual_winner then 3
       else 0
     end,
     locked = true,
@@ -167,7 +161,7 @@ begin
     p.player_id,
     coalesce(sum(p.points), 0)::integer,
     count(*) filter (where p.points >= 3)::integer,
-    count(*) filter (where p.points = 5)::integer,
+    0,
     now()
   from pickems p
   where p.room_id is null
@@ -189,7 +183,7 @@ begin
     p.player_id,
     coalesce(sum(p.points), 0)::integer,
     count(*) filter (where p.points >= 3)::integer,
-    count(*) filter (where p.points = 5)::integer,
+    0,
     now()
   from pickems p
   where p.room_id = p_room_id

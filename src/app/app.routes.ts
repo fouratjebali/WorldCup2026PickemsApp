@@ -17,6 +17,11 @@ export const routes: Routes = [
     title: 'My Pickems',
   },
   {
+    path: 'bracket',
+    loadComponent: () => import('./features/bracket/bracket.component').then((m) => m.BracketComponent),
+    title: 'Bracket',
+  },
+  {
     path: 'rooms',
     loadComponent: () => import('./features/rooms/rooms.component').then((m) => m.RoomsComponent),
     title: 'Rooms',

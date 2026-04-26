@@ -22,10 +22,10 @@ import { RouterLink } from '@angular/router';
       </div>
 
       <div class="page-card border-amber-300/30 bg-amber-300/10">
-        <h2 class="text-xl font-black text-amber-100">Picks lock when a match starts</h2>
+        <h2 class="text-xl font-black text-amber-100">Saved picks are locked</h2>
         <p class="mt-2 leading-7 text-amber-50/80">
-          Match data starts as placeholders. Update real fixtures and results in Supabase when official World Cup 2026
-          information is ready.
+          Picks are winner-only in this version. Once a group or bracket is saved, those picks are locked and cannot be
+          edited from the app.
         </p>
       </div>
 
@@ -35,9 +35,9 @@ import { RouterLink } from '@angular/router';
 })
 export class RulesComponent {
   readonly rules = [
-    { points: '+5', title: 'Exact score', description: 'You predicted both teams scores exactly.' },
-    { points: '+3', title: 'Correct winner or draw', description: 'You got the outcome right, including a draw.' },
-    { points: '+1', title: 'Goal-difference bonus', description: 'You got the exact goal difference on top of the outcome.' },
-    { points: '0', title: 'Wrong prediction', description: 'The match outcome did not match your prediction.' },
+    { points: '+3', title: 'Correct winner', description: 'You picked the team that actually wins the match.' },
+    { points: '0', title: 'Wrong winner', description: 'Your selected team did not win the match.' },
+    { points: 'Lock', title: 'Saved groups', description: 'A group becomes read-only once every match in it is saved.' },
+    { points: 'Lock', title: 'Saved bracket', description: 'The bracket becomes read-only after you save the champion path.' },
   ];
 }
