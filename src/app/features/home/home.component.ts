@@ -29,11 +29,7 @@ import { SupabaseService } from '../../core/services/supabase.service';
           </div>
         } @else {
           <div class="page-card max-w-xl border-amber-300/30 bg-amber-300/10">
-            <p class="font-bold text-amber-100">No classic login here.</p>
-            <p class="mt-2 text-sm leading-6 text-amber-50/80">
-              Your anonymous identity lives in this browser's localStorage. If you clear browser data or switch devices,
-              the app treats you as a new player.
-            </p>
+            <p class="font-bold text-amber-100">It's your first time here!</p>
           </div>
         }
 
@@ -58,12 +54,55 @@ import { SupabaseService } from '../../core/services/supabase.service';
             </div>
           }
         </div>
-        <div class="mt-5 rounded-lg border border-white/10 bg-gradient-to-br from-emerald-400/20 via-white/5 to-red-400/20 p-5">
-          <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-200">Scoring</p>
-          <p class="mt-3 text-2xl font-black">Winner-only picks: 1 group, 2 R32, 3 R16, 5 QF, 8 SF, 10 third, 15 final.</p>
+        <div class="mt-5 rounded-lg border border-white/10 bg-linear-to-br from-emerald-400/20 via-white/5 to-red-400/20 p-5">
+          <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-200">Enjoy WC26 Pickems!</p>
+          <p class="mt-3 text-2xl font-black">Choose your country. Predict the World Cup. Compete with fans around the world!</p>
         </div>
       </div>
     </section>
+
+    <footer class="mt-10 border-t border-white/10 pt-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
+        <p class="font-medium text-slate-200">Developed by Fourat Jebali</p>
+        <div class="flex items-center gap-2">
+          <a
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-emerald-300/60 hover:bg-emerald-400/10 hover:text-white"
+            href="https://github.com/fouratjebali"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="GitHub profile"
+            title="GitHub"
+          >
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+              <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.77.6-3.35-1.18-3.35-1.18-.45-1.16-1.1-1.47-1.1-1.47-.9-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.53 2.33 1.09 2.9.83.09-.65.35-1.09.63-1.34-2.21-.25-4.54-1.1-4.54-4.9 0-1.08.38-1.97 1.02-2.66-.1-.25-.44-1.26.1-2.62 0 0 .83-.27 2.7 1.02a9.35 9.35 0 0 1 4.92 0c1.87-1.29 2.7-1.02 2.7-1.02.54 1.36.2 2.37.1 2.62.64.69 1.02 1.58 1.02 2.66 0 3.81-2.33 4.65-4.55 4.9.36.31.68.92.68 1.86v2.76c0 .26.18.57.69.48A10 10 0 0 0 12 2Z" />
+            </svg>
+          </a>
+          <a
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-emerald-300/60 hover:bg-emerald-400/10 hover:text-white"
+            href="https://www.linkedin.com/in/fouratjebali/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="LinkedIn profile"
+            title="LinkedIn"
+          >
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true">
+              <path d="M6.94 6.5a1.94 1.94 0 1 1-3.88 0 1.94 1.94 0 0 1 3.88 0ZM3.5 21V8.5h3.1V21H3.5Zm5.4 0V8.5h2.98v1.71h.04c.42-.8 1.45-1.64 2.99-1.64 3.2 0 3.79 2.1 3.79 4.84V21h-3.1v-5.1c0-1.22-.02-2.79-1.7-2.79-1.71 0-1.98 1.33-1.98 2.7V21H8.9Z" />
+            </svg>
+          </a>
+          <a
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:border-emerald-300/60 hover:bg-emerald-400/10 hover:text-white"
+            href="mailto:fouratcs@gmail.com"
+            aria-label="Email Fourat Jebali"
+            title="Email"
+          >
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m4 7 8 6 8-6" />
+            </svg>
+          </a>
+        </div>
+      </div>
+    </footer>
   `,
 })
 export class HomeComponent implements OnInit {

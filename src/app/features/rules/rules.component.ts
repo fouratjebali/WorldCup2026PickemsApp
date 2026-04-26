@@ -24,16 +24,6 @@ import { RouterLink } from '@angular/router';
         }
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        @for (rule of playRules; track rule.title) {
-          <div class="page-card">
-            <p class="text-3xl font-black text-emerald-300">{{ rule.points }}</p>
-            <h2 class="mt-2 text-xl font-black text-white">{{ rule.title }}</h2>
-            <p class="mt-2 leading-6 text-slate-300">{{ rule.description }}</p>
-          </div>
-        }
-      </div>
-
       <a routerLink="/pickems" class="btn-primary">Make picks</a>
     </section>
   `,
@@ -47,11 +37,5 @@ export class RulesComponent {
     { points: '+8', title: 'Semi-finals', description: 'Every correct semi-final winner is worth 8 points.' },
     { points: '+10', title: 'Third place', description: 'The correct third-place match winner is worth 10 points.' },
     { points: '+15', title: 'Final', description: 'The correct final winner is worth 15 points.' },
-  ];
-
-  readonly playRules = [
-    { points: '0', title: 'Wrong winner', description: 'Your selected team did not win the match.' },
-    { points: 'Lock', title: 'Saved groups', description: 'A group becomes read-only once every match in it is saved.' },
-    { points: 'Lock', title: 'Saved bracket', description: 'The bracket becomes read-only after you save the champion path.' },
   ];
 }
