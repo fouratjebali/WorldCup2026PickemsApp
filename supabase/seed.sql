@@ -1,0 +1,26 @@
+insert into matches (stage, group_name, match_number, home_team, away_team, kickoff_at, status) values
+  ('Group stage', 'Group A', 1, 'Canada', 'Mexico', null, 'scheduled'),
+  ('Group stage', 'Group A', 2, 'United States', 'Morocco', null, 'scheduled'),
+  ('Group stage', 'Group B', 3, 'Brazil', 'Japan', null, 'scheduled'),
+  ('Group stage', 'Group B', 4, 'France', 'Senegal', null, 'scheduled'),
+  ('Group stage', 'Group C', 5, 'Argentina', 'Australia', null, 'scheduled'),
+  ('Group stage', 'Group C', 6, 'Spain', 'Ghana', null, 'scheduled'),
+  ('Group stage', 'Group D', 7, 'England', 'Korea Republic', null, 'scheduled'),
+  ('Group stage', 'Group D', 8, 'Germany', 'Costa Rica', null, 'scheduled'),
+  ('Round of 32', null, 49, 'Winner A', 'Third C/D/E', null, 'scheduled'),
+  ('Round of 32', null, 50, 'Runner-up B', 'Runner-up F', null, 'scheduled'),
+  ('Round of 16', null, 73, 'Winner R32 1', 'Winner R32 2', null, 'scheduled'),
+  ('Round of 16', null, 74, 'Winner R32 3', 'Winner R32 4', null, 'scheduled'),
+  ('Quarter-finals', null, 89, 'Winner R16 1', 'Winner R16 2', null, 'scheduled'),
+  ('Quarter-finals', null, 90, 'Winner R16 3', 'Winner R16 4', null, 'scheduled'),
+  ('Semi-finals', null, 97, 'Winner QF 1', 'Winner QF 2', null, 'scheduled'),
+  ('Semi-finals', null, 98, 'Winner QF 3', 'Winner QF 4', null, 'scheduled'),
+  ('Third-place match', null, 103, 'Loser SF 1', 'Loser SF 2', null, 'scheduled'),
+  ('Final', null, 104, 'Winner SF 1', 'Winner SF 2', null, 'scheduled')
+on conflict (match_number) do update set
+  stage = excluded.stage,
+  group_name = excluded.group_name,
+  home_team = excluded.home_team,
+  away_team = excluded.away_team,
+  kickoff_at = excluded.kickoff_at,
+  status = excluded.status;

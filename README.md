@@ -1,59 +1,101 @@
-# WorldcupPickems
+# World Cup 2026 Pickems
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.8.
+A simple Angular + Supabase starter for a World Cup 2026 pickems web app. Players choose a nickname and nationality,
+predict match scores, create rooms for friends, and compete on room or global leaderboards.
 
-## Development server
+## Features
 
-To start a local development server, run:
+- Anonymous local player identity with no password or classic auth.
+- Onboarding with nickname and nationality.
+- Group stage through final pickems UI.
+- Private room creation with short join codes.
+- Room and global leaderboard pages backed by a cached leaderboard table.
+- Supabase SQL schema, seed data, scoring functions, and setup notes.
+- Static Angular app ready for Cloudflare Pages.
 
-```bash
-ng serve
-```
+## Stack
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- Angular 21 standalone components
+- TypeScript
+- Tailwind CSS 4
+- Supabase JS client
+- Supabase PostgreSQL
+- Cloudflare Pages for frontend hosting
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+## Setup
 
 ```bash
-ng build
+npm install
+npm start
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+Open the local URL printed by Angular, usually `http://localhost:4200`.
 
-## Running unit tests
+## Environment Variables
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+Angular compiles environment values at build time. Update these files with placeholders locally first, then your real
+public Supabase values when ready:
+
+- `src/environments/environment.ts`
+- `src/environments/environment.prod.ts`
+
+Required values:
+
+- `SUPABASE_URL` maps to `supabaseUrl`
+- `SUPABASE_ANON_KEY` maps to `supabaseAnonKey`
+- `APP_NAME` maps to `appName`
+- `APP_ENV` maps to `appEnv`
+
+`.env.example` documents the values, but Angular does not automatically load it without extra tooling.
+
+Never expose the Supabase service role key in frontend code.
+
+## Database Setup
+
+1. Create a Supabase project.
+2. Open the Supabase SQL editor.
+3. Run `supabase/schema.sql`.
+4. Run `supabase/seed.sql`.
+5. Copy the project URL and anon key into the Angular environment files.
+
+See `supabase/README_SUPABASE_SETUP.md` for scoring and cache refresh details.
+
+## Scripts
 
 ```bash
-ng test
+npm start      # local dev server
+npm run build  # production build
+npm test       # unit tests
 ```
 
-## Running end-to-end tests
+## No-Auth Mode Limitation
 
-For end-to-end (e2e) testing, run:
+This app intentionally has no recoverable account system. A random device token is stored in localStorage and only its
+SHA-256 hash is saved in Supabase. If a user clears localStorage or uses another browser/device, the app treats them as a
+new player.
 
-```bash
-ng e2e
-```
+Because there is no real auth, the included Supabase policies are permissive for MVP development. For a serious public
+launch, add Supabase Auth, stricter RLS, server-side validation, and rate limiting.
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+## Deployment
 
-## Additional Resources
+Recommended:
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- Frontend: Cloudflare Pages
+- Backend/database: Supabase
+
+Alternatives:
+
+- Frontend: Netlify or Vercel
+- Backend/database: Supabase
+
+See `DEPLOYMENT.md` for step-by-step instructions.
+
+## Future Improvements
+
+- Real World Cup 2026 fixture import once official data is finalized.
+- Supabase Auth for account recovery.
+- Secured admin flow for result updates.
+- Scheduled leaderboard recalculation after finished matches.
+- Better anti-abuse controls and write rate limiting.
+- Pagination controls beyond the starter top-50 leaderboard limit.
