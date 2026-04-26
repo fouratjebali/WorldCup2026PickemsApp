@@ -92,6 +92,9 @@ const BRACKET_DRAFT_PREFIX = 'wc2026_pickems_bracket_draft';
                 <p class="mt-1 text-sm text-slate-400">
                   {{ selectedCount(currentStage()) }} / {{ currentStageMatches().length }} matches picked
                 </p>
+                <p class="mt-2 inline-flex rounded-md bg-emerald-400/15 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-200">
+                  +{{ stagePoints(currentStage()) }} points per correct pick
+                </p>
               </div>
 
               @if (isStageComplete(currentStage())) {
@@ -273,6 +276,19 @@ export class BracketComponent implements OnInit {
 
   selectedCount(stage: string): number {
     return this.bracketMatches(stage).filter((bracketMatch) => this.selections()[bracketMatch.match.id]).length;
+  }
+
+  stagePoints(stage: string): number {
+    const pointsByStage: Record<string, number> = {
+      'Round of 32': 2,
+      'Round of 16': 3,
+      'Quarter-finals': 5,
+      'Semi-finals': 8,
+      'Third-place match': 10,
+      Final: 15,
+    };
+
+    return pointsByStage[stage] ?? 0;
   }
 
   isFinalStage(): boolean {

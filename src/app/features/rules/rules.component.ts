@@ -5,14 +5,17 @@ import { RouterLink } from '@angular/router';
   selector: 'app-rules',
   imports: [RouterLink],
   template: `
-    <section class="mx-auto max-w-3xl space-y-6">
+    <section class="mx-auto max-w-5xl space-y-6">
       <div>
         <p class="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">Rules</p>
         <h1 class="mt-2 text-4xl font-black text-white">Simple scoring for quick competition</h1>
+        <p class="mt-3 max-w-2xl leading-7 text-slate-300">
+          Pick the winner of each match. Correct picks are worth more points as the World Cup gets closer to the trophy.
+        </p>
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        @for (rule of rules; track rule.title) {
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        @for (rule of scoringRules; track rule.title) {
           <div class="page-card">
             <p class="text-3xl font-black text-emerald-300">{{ rule.points }}</p>
             <h2 class="mt-2 text-xl font-black text-white">{{ rule.title }}</h2>
@@ -21,12 +24,14 @@ import { RouterLink } from '@angular/router';
         }
       </div>
 
-      <div class="page-card border-amber-300/30 bg-amber-300/10">
-        <h2 class="text-xl font-black text-amber-100">Saved picks are locked</h2>
-        <p class="mt-2 leading-7 text-amber-50/80">
-          Picks are winner-only in this version. Once a group or bracket is saved, those picks are locked and cannot be
-          edited from the app.
-        </p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        @for (rule of playRules; track rule.title) {
+          <div class="page-card">
+            <p class="text-3xl font-black text-emerald-300">{{ rule.points }}</p>
+            <h2 class="mt-2 text-xl font-black text-white">{{ rule.title }}</h2>
+            <p class="mt-2 leading-6 text-slate-300">{{ rule.description }}</p>
+          </div>
+        }
       </div>
 
       <a routerLink="/pickems" class="btn-primary">Make picks</a>
@@ -34,8 +39,17 @@ import { RouterLink } from '@angular/router';
   `,
 })
 export class RulesComponent {
-  readonly rules = [
-    { points: '+3', title: 'Correct winner', description: 'You picked the team that actually wins the match.' },
+  readonly scoringRules = [
+    { points: '+1', title: 'Group stage', description: 'Every correct group match winner is worth 1 point.' },
+    { points: '+2', title: 'Round of 32', description: 'Every correct Round of 32 winner is worth 2 points.' },
+    { points: '+3', title: 'Round of 16', description: 'Every correct Round of 16 winner is worth 3 points.' },
+    { points: '+5', title: 'Quarter-finals', description: 'Every correct quarter-final winner is worth 5 points.' },
+    { points: '+8', title: 'Semi-finals', description: 'Every correct semi-final winner is worth 8 points.' },
+    { points: '+10', title: 'Third place', description: 'The correct third-place match winner is worth 10 points.' },
+    { points: '+15', title: 'Final', description: 'The correct final winner is worth 15 points.' },
+  ];
+
+  readonly playRules = [
     { points: '0', title: 'Wrong winner', description: 'Your selected team did not win the match.' },
     { points: 'Lock', title: 'Saved groups', description: 'A group becomes read-only once every match in it is saved.' },
     { points: 'Lock', title: 'Saved bracket', description: 'The bracket becomes read-only after you save the champion path.' },

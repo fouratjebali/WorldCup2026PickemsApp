@@ -126,8 +126,10 @@ create trigger group_standing_picks_touch_updated_at
 before update on group_standing_picks
 for each row execute function touch_updated_at();
 
--- Scoring for the current winner-only UI:
--- Correct winner: 3 points.
+-- Scoring for the current winner-only UI.
+-- Correct picks are worth more as the tournament gets deeper:
+-- Group stage: 1, Round of 32: 2, Round of 16: 3, Quarter-finals: 5,
+-- Semi-finals: 8, Third-place match: 10, Final: 15.
 -- Wrong winner: 0 points.
 -- Score columns stay nullable so a future score-prediction mode can be added without changing the table shape.
 create or replace function calculate_points_for_match(p_match_id uuid)
@@ -138,8 +140,11 @@ declare
   actual_home integer;
   actual_away integer;
   actual_winner text;
+  actual_stage text;
+  stage_points integer;
 begin
   select
+    stage,
     home_score,
     away_score,
     case
@@ -148,7 +153,7 @@ begin
       when home_score > away_score then home_team
       else away_team
     end
-  into actual_home, actual_away, actual_winner
+  into actual_stage, actual_home, actual_away, actual_winner
   from matches
   where id = p_match_id;
 
@@ -156,10 +161,21 @@ begin
     return;
   end if;
 
+  stage_points := case actual_stage
+    when 'Group stage' then 1
+    when 'Round of 32' then 2
+    when 'Round of 16' then 3
+    when 'Quarter-finals' then 5
+    when 'Semi-finals' then 8
+    when 'Third-place match' then 10
+    when 'Final' then 15
+    else 0
+  end;
+
   update pickems
   set
     points = case
-      when predicted_winner_team = actual_winner then 3
+      when predicted_winner_team = actual_winner then stage_points
       else 0
     end,
     locked = true,
@@ -181,7 +197,7 @@ begin
     null,
     p.player_id,
     coalesce(sum(p.points), 0)::integer,
-    count(*) filter (where p.points >= 3)::integer,
+    count(*) filter (where p.points > 0)::integer,
     0,
     now()
   from pickems p
@@ -203,7 +219,7 @@ begin
     p_room_id,
     p.player_id,
     coalesce(sum(p.points), 0)::integer,
-    count(*) filter (where p.points >= 3)::integer,
+    count(*) filter (where p.points > 0)::integer,
     0,
     now()
   from pickems p

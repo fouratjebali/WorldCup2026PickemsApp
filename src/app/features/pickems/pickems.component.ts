@@ -71,6 +71,9 @@ interface TeamStanding {
                 <p class="mt-1 text-sm text-slate-400">
                   {{ selectedCount(currentGroup()) }} / {{ currentGroupMatches().length }} matches picked
                 </p>
+                <p class="mt-2 inline-flex rounded-md bg-emerald-400/15 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-200">
+                  +1 point per correct pick
+                </p>
               </div>
               @if (isGroupSaved(currentGroup())) {
                 <span class="rounded-md bg-emerald-400 px-3 py-2 text-sm font-black text-slate-950">Saved</span>
