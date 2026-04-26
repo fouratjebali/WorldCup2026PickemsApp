@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { GroupStandingPick } from '../../core/models/group-standing-pick.model';
 import { Match } from '../../core/models/match.model';
 import { Pickem } from '../../core/models/pickem.model';
 import { Player } from '../../core/models/player.model';
@@ -135,9 +136,10 @@ interface TeamStanding {
             </div>
 
             <div class="mt-4 overflow-hidden rounded-lg border border-white/10">
-              <div class="grid grid-cols-[40px_1fr_52px_52px_52px] gap-2 bg-slate-950/80 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+              <div class="grid grid-cols-[40px_1fr_72px_44px_44px_44px] gap-2 bg-slate-950/80 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
                 <span>#</span>
                 <span>Team</span>
+                <span class="text-center">Tie</span>
                 <span class="text-right">P</span>
                 <span class="text-right">W</span>
                 <span class="text-right">Pts</span>
@@ -145,7 +147,7 @@ interface TeamStanding {
 
               @for (standing of currentStandings(); track standing.team; let index = $index) {
                 <div
-                  class="grid grid-cols-[40px_1fr_52px_52px_52px] gap-2 border-t border-white/5 px-3 py-3"
+                  class="grid grid-cols-[40px_1fr_72px_44px_44px_44px] items-center gap-2 border-t border-white/5 px-3 py-3"
                   [class.bg-emerald-400/10]="index < 2"
                   [class.bg-amber-300/10]="index === 2"
                 >
@@ -153,6 +155,26 @@ interface TeamStanding {
                     {{ index + 1 }}
                   </span>
                   <span class="truncate font-bold text-white">{{ standing.team }}</span>
+                  <span class="flex justify-center gap-1">
+                    <button
+                      type="button"
+                      class="rounded bg-white/10 px-2 py-1 text-xs font-black text-white disabled:opacity-25"
+                      [disabled]="!canMoveStandingUp(index)"
+                      (click)="moveStanding(index, -1)"
+                      title="Move up inside tied teams"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded bg-white/10 px-2 py-1 text-xs font-black text-white disabled:opacity-25"
+                      [disabled]="!canMoveStandingDown(index)"
+                      (click)="moveStanding(index, 1)"
+                      title="Move down inside tied teams"
+                    >
+                      ↓
+                    </button>
+                  </span>
                   <span class="text-right text-slate-300">{{ standing.played }}</span>
                   <span class="text-right text-slate-300">{{ standing.wins }}</span>
                   <span class="text-right font-black text-white">{{ standing.points }}</span>
@@ -161,7 +183,8 @@ interface TeamStanding {
             </div>
 
             <p class="mt-4 text-sm leading-6 text-slate-400">
-              The top two teams qualify automatically. The bracket also uses the best eight third-place teams.
+              If teams are tied on points, use the arrows to choose their order before saving. The top two teams qualify
+              automatically, and the bracket also uses the best eight third-place teams.
             </p>
           </aside>
         </div>
@@ -179,6 +202,7 @@ export class PickemsComponent implements OnInit {
   readonly currentGroupIndex = signal(0);
   readonly selections = signal<Record<string, string>>({});
   readonly lockedMatchIds = signal<string[]>([]);
+  readonly manualGroupOrders = signal<Record<string, string[]>>({});
   roomId: string | null = null;
 
   constructor(
@@ -200,15 +224,17 @@ export class PickemsComponent implements OnInit {
       }
 
       this.player.set(player);
-      const [matches, pickems] = await Promise.all([
+      const [matches, pickems, standingPicks] = await Promise.all([
         this.matchService.listMatches(),
         this.pickemsService.listPlayerPickems(player.id, this.roomId),
+        this.pickemsService.listPlayerGroupStandings(player.id, this.roomId),
       ]);
       const groupMatches = matches.filter((match) => match.stage === 'Group stage' && match.group_name);
 
       this.matches.set(groupMatches);
       this.groups.set([...new Set(groupMatches.map((match) => match.group_name!))].sort());
       this.hydrateSelections(pickems);
+      this.hydrateManualOrders(standingPicks);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Could not load group picks.');
     } finally {
@@ -278,6 +304,34 @@ export class PickemsComponent implements OnInit {
     return this.matchesForGroup(group).filter((match) => this.selections()[match.id]).length;
   }
 
+  canMoveStandingUp(index: number): boolean {
+    const standings = this.currentStandings();
+    return !this.isGroupSaved(this.currentGroup()) && index > 0 && standings[index].points === standings[index - 1].points;
+  }
+
+  canMoveStandingDown(index: number): boolean {
+    const standings = this.currentStandings();
+    return (
+      !this.isGroupSaved(this.currentGroup()) &&
+      index < standings.length - 1 &&
+      standings[index].points === standings[index + 1].points
+    );
+  }
+
+  moveStanding(index: number, direction: -1 | 1): void {
+    const target = index + direction;
+    if ((direction === -1 && !this.canMoveStandingUp(index)) || (direction === 1 && !this.canMoveStandingDown(index))) {
+      return;
+    }
+
+    const group = this.currentGroup();
+    const standings = this.currentStandings();
+    const order = standings.map((standing) => standing.team);
+    [order[index], order[target]] = [order[target], order[index]];
+
+    this.manualGroupOrders.update((current) => ({ ...current, [group]: order }));
+  }
+
   savedGroupCount(): number {
     return this.groups().filter((group) => this.isGroupSaved(group)).length;
   }
@@ -311,6 +365,19 @@ export class PickemsComponent implements OnInit {
           predictedHomeScore: null,
           predictedAwayScore: null,
           predictedWinnerTeam: this.selections()[match.id],
+          locked: true,
+        })),
+      );
+
+      await this.pickemsService.saveGroupStandings(
+        this.currentStandings().map((standing, index) => ({
+          playerId: player.id,
+          roomId: this.roomId,
+          groupName: this.currentGroup(),
+          team: standing.team,
+          rank: index + 1,
+          points: standing.points,
+          wins: standing.wins,
           locked: true,
         })),
       );
@@ -356,7 +423,15 @@ export class PickemsComponent implements OnInit {
       winningTeam.points += 3;
     }
 
-    return [...table.values()].sort((a, b) => b.points - a.points || b.wins - a.wins || a.team.localeCompare(b.team));
+    const manualOrder = this.manualGroupOrders()[group] ?? [];
+    const orderIndex = (team: string): number => {
+      const index = manualOrder.indexOf(team);
+      return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+    };
+
+    return [...table.values()].sort(
+      (a, b) => b.points - a.points || orderIndex(a.team) - orderIndex(b.team) || a.team.localeCompare(b.team),
+    );
   }
 
   private hydrateSelections(pickems: Pickem[]): void {
@@ -375,5 +450,15 @@ export class PickemsComponent implements OnInit {
 
     this.selections.set(selections);
     this.lockedMatchIds.set(lockedIds);
+  }
+
+  private hydrateManualOrders(standingPicks: GroupStandingPick[]): void {
+    const orders = standingPicks.reduce<Record<string, string[]>>((groups, standing) => {
+      groups[standing.group_name] = groups[standing.group_name] ?? [];
+      groups[standing.group_name][standing.rank - 1] = standing.team;
+      return groups;
+    }, {});
+
+    this.manualGroupOrders.set(orders);
   }
 }

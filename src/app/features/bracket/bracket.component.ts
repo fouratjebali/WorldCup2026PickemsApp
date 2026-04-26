@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { GroupStandingPick } from '../../core/models/group-standing-pick.model';
 import { Match } from '../../core/models/match.model';
 import { Pickem } from '../../core/models/pickem.model';
 import { Player } from '../../core/models/player.model';
@@ -174,6 +175,7 @@ export class BracketComponent implements OnInit {
   readonly player = signal<Player | null>(null);
   readonly allMatches = signal<Match[]>([]);
   readonly groupPickems = signal<Pickem[]>([]);
+  readonly savedGroupStandings = signal<GroupStandingPick[]>([]);
   readonly selections = signal<Record<string, string>>({});
   readonly lockedMatchIds = signal<string[]>([]);
   readonly currentStageIndex = signal(0);
@@ -199,13 +201,15 @@ export class BracketComponent implements OnInit {
       }
 
       this.player.set(player);
-      const [matches, pickems] = await Promise.all([
+      const [matches, pickems, standingPicks] = await Promise.all([
         this.matchService.listMatches(),
         this.pickemsService.listPlayerPickems(player.id, this.roomId),
+        this.pickemsService.listPlayerGroupStandings(player.id, this.roomId),
       ]);
 
       this.allMatches.set(matches);
       this.groupPickems.set(pickems.filter((pickem) => this.matchById(pickem.match_id)?.stage === 'Group stage'));
+      this.savedGroupStandings.set(standingPicks);
       this.hydrateKnockoutSelections(pickems);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Could not load bracket.');
@@ -391,6 +395,18 @@ export class BracketComponent implements OnInit {
   }
 
   private groupStandings(): GroupStanding[] {
+    if (this.savedGroupStandings().length) {
+      return this.savedGroupStandings()
+        .map((standing) => ({
+          group: standing.group_name,
+          team: standing.team,
+          played: 3,
+          wins: standing.wins,
+          points: standing.points,
+        }))
+        .sort((a, b) => a.group.localeCompare(b.group) || this.savedRank(a.group, a.team) - this.savedRank(b.group, b.team));
+    }
+
     const pickemsByMatchId = new Map(this.groupPickems().map((pickem) => [pickem.match_id, pickem]));
     const table = new Map<string, GroupStanding>();
     const keyFor = (group: string, team: string) => `${group}:${team}`;
@@ -421,6 +437,10 @@ export class BracketComponent implements OnInit {
     }
 
     return [...table.values()].sort((a, b) => a.group.localeCompare(b.group) || b.points - a.points || b.wins - a.wins || a.team.localeCompare(b.team));
+  }
+
+  private savedRank(group: string, team: string): number {
+    return this.savedGroupStandings().find((standing) => standing.group_name === group && standing.team === team)?.rank ?? 99;
   }
 
   private groupRank(group: string, rank: number): string {

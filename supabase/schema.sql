@@ -60,6 +60,21 @@ create table if not exists pickems (
   unique nulls not distinct (player_id, room_id, match_id)
 );
 
+create table if not exists group_standing_picks (
+  id uuid primary key default gen_random_uuid(),
+  player_id uuid not null references players(id) on delete cascade,
+  room_id uuid null references rooms(id) on delete cascade,
+  group_name text not null,
+  team text not null,
+  rank integer not null check (rank between 1 and 4),
+  points integer not null default 0,
+  wins integer not null default 0,
+  locked boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique nulls not distinct (player_id, room_id, group_name, team)
+);
+
 create table if not exists leaderboard_cache (
   id uuid primary key default gen_random_uuid(),
   scope text not null check (scope in ('global', 'room')),
@@ -80,6 +95,7 @@ create index if not exists idx_matches_stage_number on matches (stage, match_num
 create index if not exists idx_pickems_player on pickems (player_id, room_id);
 create index if not exists idx_pickems_room on pickems (room_id, player_id);
 create index if not exists idx_pickems_match on pickems (match_id);
+create index if not exists idx_group_standing_picks_player on group_standing_picks (player_id, room_id, group_name, rank);
 create index if not exists idx_leaderboard_global on leaderboard_cache (scope, total_points desc, exact_scores desc)
   where scope = 'global';
 create index if not exists idx_leaderboard_room on leaderboard_cache (room_id, total_points desc, exact_scores desc)
@@ -103,6 +119,11 @@ for each row execute function touch_updated_at();
 drop trigger if exists pickems_touch_updated_at on pickems;
 create trigger pickems_touch_updated_at
 before update on pickems
+for each row execute function touch_updated_at();
+
+drop trigger if exists group_standing_picks_touch_updated_at on group_standing_picks;
+create trigger group_standing_picks_touch_updated_at
+before update on group_standing_picks
 for each row execute function touch_updated_at();
 
 -- Scoring for the current winner-only UI:
@@ -196,6 +217,7 @@ alter table rooms enable row level security;
 alter table room_members enable row level security;
 alter table matches enable row level security;
 alter table pickems enable row level security;
+alter table group_standing_picks enable row level security;
 alter table leaderboard_cache enable row level security;
 
 -- Simple public anon policies for an MVP without auth. These are intentionally permissive so the static Angular app can
@@ -232,6 +254,13 @@ drop policy if exists "public write pickems" on pickems;
 create policy "public write pickems" on pickems for insert to anon with check (true);
 drop policy if exists "public update pickems" on pickems;
 create policy "public update pickems" on pickems for update to anon using (true) with check (true);
+
+drop policy if exists "public read group_standing_picks" on group_standing_picks;
+create policy "public read group_standing_picks" on group_standing_picks for select to anon using (true);
+drop policy if exists "public write group_standing_picks" on group_standing_picks;
+create policy "public write group_standing_picks" on group_standing_picks for insert to anon with check (true);
+drop policy if exists "public update group_standing_picks" on group_standing_picks;
+create policy "public update group_standing_picks" on group_standing_picks for update to anon using (true) with check (true);
 
 drop policy if exists "public read leaderboard_cache" on leaderboard_cache;
 create policy "public read leaderboard_cache" on leaderboard_cache for select to anon using (true);
