@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Room } from '../models/room.model';
+import { Room, RoomMember } from '../models/room.model';
 import { SupabaseService } from './supabase.service';
 
 @Injectable({ providedIn: 'root' })
@@ -82,6 +82,20 @@ export class RoomService {
     }
 
     return (data as Room | null) ?? null;
+  }
+
+  async listRoomMembers(roomId: string): Promise<RoomMember[]> {
+    const { data, error } = await this.supabase.client
+      .from('room_members')
+      .select('id, room_id, player_id, joined_at, player:players(id, device_token_hash, nickname, nationality, created_at, updated_at)')
+      .eq('room_id', roomId)
+      .order('joined_at', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data ?? []) as unknown as RoomMember[];
   }
 
   private async joinRoomById(roomId: string, playerId: string): Promise<void> {

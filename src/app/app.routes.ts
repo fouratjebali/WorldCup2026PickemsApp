@@ -27,6 +27,11 @@ export const routes: Routes = [
     title: 'Rooms',
   },
   {
+    path: 'rooms/:roomId/members/:playerId/pickems',
+    loadComponent: () => import('./features/rooms/member-pickems.component').then((m) => m.MemberPickemsComponent),
+    title: 'Member Pickems',
+  },
+  {
     path: 'leaderboard',
     loadComponent: () => import('./features/leaderboard/leaderboard.component').then((m) => m.LeaderboardComponent),
     title: 'Leaderboard',

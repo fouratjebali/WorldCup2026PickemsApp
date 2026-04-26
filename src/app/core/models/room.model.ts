@@ -1,3 +1,5 @@
+import type { Player } from './player.model';
+
 export interface Room {
   id: string;
   code: string;
@@ -13,4 +15,5 @@ export interface RoomMember {
   player_id: string;
   joined_at: string;
   room?: Room;
+  player?: Player;
 }

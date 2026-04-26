@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Player } from '../../core/models/player.model';
-import { Room } from '../../core/models/room.model';
+import { Room, RoomMember } from '../../core/models/room.model';
 import { PickemsService } from '../../core/services/pickems.service';
 import { PlayerService } from '../../core/services/player.service';
 import { RoomService } from '../../core/services/room.service';
@@ -84,6 +84,41 @@ import { RoomService } from '../../core/services/room.service';
                   <a class="btn-secondary" [routerLink]="['/bracket']" [queryParams]="{ roomId: room.id }">Bracket</a>
                   <a class="btn-secondary" [routerLink]="['/leaderboard']" [queryParams]="{ roomId: room.id }">Leaderboard</a>
                 </div>
+
+                <div class="mt-5 border-t border-white/10 pt-4">
+                  <div class="mb-3 flex items-center justify-between gap-3">
+                    <p class="text-sm font-black uppercase tracking-[0.14em] text-slate-400">Members</p>
+                    <span class="rounded-md bg-white/10 px-2 py-1 text-xs font-black text-slate-300">
+                      {{ roomMembers(room.id).length }}
+                    </span>
+                  </div>
+
+                  @if (!roomMembers(room.id).length) {
+                    <p class="text-sm text-slate-400">No members loaded yet.</p>
+                  } @else {
+                    <div class="space-y-2">
+                      @for (member of roomMembers(room.id); track member.id) {
+                        <div class="flex items-center justify-between gap-3 rounded-lg bg-slate-950/60 px-3 py-2">
+                          <div class="min-w-0">
+                            <p class="truncate font-bold text-white">{{ member.player?.nickname || 'Player' }}</p>
+                            <p class="text-sm text-slate-400">{{ member.player?.nationality || 'Unknown nationality' }}</p>
+                          </div>
+                          <a
+                            class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/10 text-emerald-100 transition hover:border-emerald-300/60 hover:bg-emerald-400/15"
+                            [routerLink]="['/rooms', room.id, 'members', member.player_id, 'pickems']"
+                            [attr.aria-label]="'View picks for ' + (member.player?.nickname || 'player')"
+                            title="View member pickems"
+                          >
+                            <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                              <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          </a>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
               </article>
             }
           </div>
@@ -97,6 +132,7 @@ export class RoomsComponent implements OnInit {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly rooms = signal<Room[]>([]);
+  readonly membersByRoom = signal<Record<string, RoomMember[]>>({});
   readonly pendingRoom = signal<Room | null>(null);
   roomName = '';
   roomCode = '';
@@ -195,8 +231,16 @@ export class RoomsComponent implements OnInit {
 
   private async reloadRooms(): Promise<void> {
     if (this.player) {
-      this.rooms.set(await this.roomService.listPlayerRooms(this.player.id));
+      const rooms = await this.roomService.listPlayerRooms(this.player.id);
+      const memberEntries = await Promise.all(rooms.map(async (room) => [room.id, await this.roomService.listRoomMembers(room.id)] as const));
+
+      this.rooms.set(rooms);
+      this.membersByRoom.set(Object.fromEntries(memberEntries));
     }
+  }
+
+  roomMembers(roomId: string): RoomMember[] {
+    return this.membersByRoom()[roomId] ?? [];
   }
 
   private async handleJoinedRoom(room: Room): Promise<void> {
