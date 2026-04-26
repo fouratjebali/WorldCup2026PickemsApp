@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Player } from '../../core/models/player.model';
 import { Room } from '../../core/models/room.model';
+import { PickemsService } from '../../core/services/pickems.service';
 import { PlayerService } from '../../core/services/player.service';
 import { RoomService } from '../../core/services/room.service';
 
@@ -21,6 +22,24 @@ import { RoomService } from '../../core/services/room.service';
 
       @if (error()) {
         <div class="page-card border-red-300/30 bg-red-400/10 text-red-100">{{ error() }}</div>
+      }
+
+      @if (pendingRoom()) {
+        <div class="page-card border-emerald-300/30 bg-emerald-400/10">
+          <p class="text-sm font-black uppercase tracking-[0.16em] text-emerald-200">Room ready</p>
+          <h2 class="mt-2 text-2xl font-black text-white">{{ pendingRoom()?.name }}</h2>
+          <p class="mt-2 leading-7 text-slate-200">
+            You already have global pickems. Copy them into this room, or start a fresh room-only bracket.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-3">
+            <button class="btn-primary" type="button" [disabled]="busy()" (click)="copyGlobalToRoom()">
+              {{ busy() ? 'Copying...' : 'Copy my pickems' }}
+            </button>
+            <button class="btn-secondary" type="button" [disabled]="busy()" (click)="startFreshRoomPickems()">
+              Start fresh
+            </button>
+          </div>
+        </div>
       }
 
       <div class="grid gap-4 lg:grid-cols-2">
@@ -78,6 +97,7 @@ export class RoomsComponent implements OnInit {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly rooms = signal<Room[]>([]);
+  readonly pendingRoom = signal<Room | null>(null);
   roomName = '';
   roomCode = '';
   private player: Player | null = null;
@@ -85,6 +105,7 @@ export class RoomsComponent implements OnInit {
   constructor(
     private readonly playerService: PlayerService,
     private readonly roomService: RoomService,
+    private readonly pickemsService: PickemsService,
     private readonly router: Router,
   ) {}
 
@@ -110,8 +131,9 @@ export class RoomsComponent implements OnInit {
     }
 
     await this.runRoomAction(async () => {
-      await this.roomService.createRoom(this.roomName, this.player!.id);
+      const room = await this.roomService.createRoom(this.roomName, this.player!.id);
       this.roomName = '';
+      await this.handleJoinedRoom(room);
     });
   }
 
@@ -121,9 +143,40 @@ export class RoomsComponent implements OnInit {
     }
 
     await this.runRoomAction(async () => {
-      await this.roomService.joinRoom(this.roomCode, this.player!.id);
+      const room = await this.roomService.joinRoom(this.roomCode, this.player!.id);
       this.roomCode = '';
+      await this.handleJoinedRoom(room);
     });
+  }
+
+  async copyGlobalToRoom(): Promise<void> {
+    const room = this.pendingRoom();
+    if (!this.player || !room || this.busy()) {
+      return;
+    }
+
+    this.busy.set(true);
+    this.error.set('');
+
+    try {
+      await this.pickemsService.copyGlobalPickemsToRoom(this.player.id, room.id);
+      this.pendingRoom.set(null);
+      await this.router.navigate(['/pickems'], { queryParams: { roomId: room.id } });
+    } catch (error) {
+      this.error.set(error instanceof Error ? error.message : 'Could not copy your pickems. Please retry.');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  async startFreshRoomPickems(): Promise<void> {
+    const room = this.pendingRoom();
+    if (!room) {
+      return;
+    }
+
+    this.pendingRoom.set(null);
+    await this.router.navigate(['/pickems'], { queryParams: { roomId: room.id } });
   }
 
   private async runRoomAction(action: () => Promise<void>): Promise<void> {
@@ -144,5 +197,28 @@ export class RoomsComponent implements OnInit {
     if (this.player) {
       this.rooms.set(await this.roomService.listPlayerRooms(this.player.id));
     }
+  }
+
+  private async handleJoinedRoom(room: Room): Promise<void> {
+    if (!this.player) {
+      return;
+    }
+
+    const [hasGlobalPickems, hasRoomPickems] = await Promise.all([
+      this.pickemsService.hasGlobalPickems(this.player.id),
+      this.pickemsService.hasRoomPickems(this.player.id, room.id),
+    ]);
+
+    if (hasRoomPickems) {
+      await this.router.navigate(['/pickems'], { queryParams: { roomId: room.id } });
+      return;
+    }
+
+    if (hasGlobalPickems) {
+      this.pendingRoom.set(room);
+      return;
+    }
+
+    await this.router.navigate(['/pickems'], { queryParams: { roomId: room.id } });
   }
 }
