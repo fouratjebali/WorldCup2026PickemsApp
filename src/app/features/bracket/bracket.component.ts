@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { GroupStandingPick } from '../../core/models/group-standing-pick.model';
 import { Match } from '../../core/models/match.model';
@@ -25,6 +25,7 @@ interface BracketMatch {
 
 @Component({
   selector: 'app-bracket',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink],
   template: `
     <section class="space-y-6">
@@ -180,6 +181,14 @@ export class BracketComponent implements OnInit {
   readonly lockedMatchIds = signal<string[]>([]);
   readonly currentStageIndex = signal(0);
   readonly knockoutStages = ['Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Third-place match', 'Final'];
+  readonly groupStandingsCache = computed(() => this.buildGroupStandings());
+  readonly bracketMatchesByStage = computed(() => this.buildBracketMatchesByStage());
+  readonly currentStage = computed(() => this.knockoutStages[this.currentStageIndex()] ?? this.knockoutStages[0]);
+  readonly currentStageMatches = computed(() => this.bracketMatches(this.currentStage()));
+  readonly champion = computed(() => {
+    const final = this.allMatches().find((match) => match.stage === 'Final');
+    return final ? this.selections()[final.id] ?? '' : '';
+  });
   roomId: string | null = null;
 
   constructor(
@@ -225,27 +234,7 @@ export class BracketComponent implements OnInit {
   }
 
   bracketMatches(stage: string): BracketMatch[] {
-    return this.allMatches()
-      .filter((match) => match.stage === stage)
-      .sort((a, b) => a.match_number - b.match_number)
-      .map((match) => {
-        const homeTeam = this.resolveSlot(match.home_team);
-        const awayTeam = this.resolveSlot(match.away_team);
-        return {
-          match,
-          homeTeam,
-          awayTeam,
-          canPick: !homeTeam.startsWith('Winner ') && !homeTeam.startsWith('Loser ') && !awayTeam.startsWith('Winner ') && !awayTeam.startsWith('Loser '),
-        };
-      });
-  }
-
-  currentStage(): string {
-    return this.knockoutStages[this.currentStageIndex()] ?? this.knockoutStages[0];
-  }
-
-  currentStageMatches(): BracketMatch[] {
-    return this.bracketMatches(this.currentStage());
+    return this.bracketMatchesByStage()[stage] ?? [];
   }
 
   goToStage(index: number): void {
@@ -321,7 +310,7 @@ export class BracketComponent implements OnInit {
     const selected = this.selections()[matchId];
     const pending = team.startsWith('Winner ') || team.startsWith('Loser ');
     const base =
-      'min-h-14 rounded-lg border px-4 py-3 text-left font-black transition disabled:cursor-not-allowed disabled:opacity-70';
+      'min-h-14 rounded-lg border px-4 py-3 text-left font-black disabled:cursor-not-allowed disabled:opacity-70';
 
     if (pending) {
       return `${base} border-white/10 bg-slate-900/80 text-slate-500`;
@@ -336,11 +325,6 @@ export class BracketComponent implements OnInit {
     }
 
     return `${base} border-white/10 bg-slate-950/70 text-white hover:border-emerald-300/60 hover:bg-white/10`;
-  }
-
-  champion(): string {
-    const final = this.allMatches().find((match) => match.stage === 'Final');
-    return final ? this.selections()[final.id] ?? '' : '';
   }
 
   isBracketSaved(): boolean {
@@ -394,7 +378,38 @@ export class BracketComponent implements OnInit {
     return this.allMatches().filter((match) => match.stage !== 'Group stage').sort((a, b) => a.match_number - b.match_number);
   }
 
-  private groupStandings(): GroupStanding[] {
+  private buildBracketMatchesByStage(): Record<string, BracketMatch[]> {
+    const stages = this.knockoutStages.reduce<Record<string, BracketMatch[]>>((accumulator, stage) => {
+      accumulator[stage] = [];
+      return accumulator;
+    }, {});
+
+    for (const stage of this.knockoutStages) {
+      const stageMatches = this.allMatches()
+        .filter((match) => match.stage === stage)
+        .sort((a, b) => a.match_number - b.match_number);
+
+      for (const match of stageMatches) {
+        const homeTeam = this.resolveSlot(match.home_team, stages);
+        const awayTeam = this.resolveSlot(match.away_team, stages);
+
+        stages[stage].push({
+          match,
+          homeTeam,
+          awayTeam,
+          canPick:
+            !homeTeam.startsWith('Winner ') &&
+            !homeTeam.startsWith('Loser ') &&
+            !awayTeam.startsWith('Winner ') &&
+            !awayTeam.startsWith('Loser '),
+        });
+      }
+    }
+
+    return stages;
+  }
+
+  private buildGroupStandings(): GroupStanding[] {
     if (this.savedGroupStandings().length) {
       return this.savedGroupStandings()
         .map((standing) => ({
@@ -444,23 +459,23 @@ export class BracketComponent implements OnInit {
   }
 
   private groupRank(group: string, rank: number): string {
-    return this.groupStandings().filter((standing) => standing.group === group)[rank - 1]?.team ?? `${group} #${rank}`;
+    return this.groupStandingsCache().filter((standing) => standing.group === group)[rank - 1]?.team ?? `${group} #${rank}`;
   }
 
   private bestThirdTeams(): GroupStanding[] {
     const groups = [...new Set(this.groupMatches().map((match) => match.group_name ?? ''))];
     return groups
-      .map((group) => this.groupStandings().filter((standing) => standing.group === group)[2])
+      .map((group) => this.groupStandingsCache().filter((standing) => standing.group === group)[2])
       .filter(Boolean)
       .sort((a, b) => b.points - a.points || b.wins - a.wins || a.team.localeCompare(b.team))
       .slice(0, 8);
   }
 
-  private thirdTeamForSlot(slot: string): string {
+  private thirdTeamForSlot(slot: string, stages: Record<string, BracketMatch[]>): string {
     const candidates = slot.replace('Third Group ', '').split('/');
     const usedThirdTeams = this.roundOf32MatchesBefore(slot).map((match) => {
-      const home = match.home_team === slot ? '' : this.resolveSlot(match.home_team);
-      const away = match.away_team === slot ? '' : this.resolveSlot(match.away_team);
+      const home = match.home_team === slot ? '' : this.resolveSlot(match.home_team, stages);
+      const away = match.away_team === slot ? '' : this.resolveSlot(match.away_team, stages);
       return home || away;
     });
 
@@ -476,7 +491,7 @@ export class BracketComponent implements OnInit {
     return index > -1 ? roundOf32.slice(0, index) : [];
   }
 
-  private resolveSlot(slot: string): string {
+  private resolveSlot(slot: string, stages: Record<string, BracketMatch[]>): string {
     const groupWinner = /^Winner Group ([A-L])$/.exec(slot);
     if (groupWinner) {
       return this.groupRank(`Group ${groupWinner[1]}`, 1);
@@ -488,7 +503,7 @@ export class BracketComponent implements OnInit {
     }
 
     if (slot.startsWith('Third Group ')) {
-      return this.thirdTeamForSlot(slot);
+      return this.thirdTeamForSlot(slot, stages);
     }
 
     const matchWinner = /^Winner Match (\d+)$/.exec(slot);
@@ -505,7 +520,7 @@ export class BracketComponent implements OnInit {
       }
 
       const winner = this.selections()[sourceMatch.id];
-      const source = this.bracketMatches(sourceMatch.stage).find((bracketMatch) => bracketMatch.match.id === sourceMatch.id);
+      const source = stages[sourceMatch.stage]?.find((bracketMatch) => bracketMatch.match.id === sourceMatch.id);
       if (!winner || !source) {
         return slot;
       }
