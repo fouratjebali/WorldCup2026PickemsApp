@@ -383,6 +383,7 @@ export class BracketComponent implements OnInit {
       accumulator[stage] = [];
       return accumulator;
     }, {});
+    const assignedThirdPlaceTeams = new Set<string>();
 
     for (const stage of this.knockoutStages) {
       const stageMatches = this.allMatches()
@@ -390,8 +391,8 @@ export class BracketComponent implements OnInit {
         .sort((a, b) => a.match_number - b.match_number);
 
       for (const match of stageMatches) {
-        const homeTeam = this.resolveSlot(match.home_team, stages);
-        const awayTeam = this.resolveSlot(match.away_team, stages);
+        const homeTeam = this.resolveSlot(match.home_team, stages, assignedThirdPlaceTeams);
+        const awayTeam = this.resolveSlot(match.away_team, stages, assignedThirdPlaceTeams);
 
         stages[stage].push({
           match,
@@ -471,27 +472,20 @@ export class BracketComponent implements OnInit {
       .slice(0, 8);
   }
 
-  private thirdTeamForSlot(slot: string, stages: Record<string, BracketMatch[]>): string {
+  private thirdTeamForSlot(slot: string, assignedThirdPlaceTeams: Set<string>): string {
     const candidates = slot.replace('Third Group ', '').split('/');
-    const usedThirdTeams = this.roundOf32MatchesBefore(slot).map((match) => {
-      const home = match.home_team === slot ? '' : this.resolveSlot(match.home_team, stages);
-      const away = match.away_team === slot ? '' : this.resolveSlot(match.away_team, stages);
-      return home || away;
-    });
-
     const third = this.bestThirdTeams().find(
-      (standing) => candidates.includes(standing.group.replace('Group ', '')) && !usedThirdTeams.includes(standing.team),
+      (standing) => candidates.includes(standing.group.replace('Group ', '')) && !assignedThirdPlaceTeams.has(standing.team),
     );
+
+    if (third) {
+      assignedThirdPlaceTeams.add(third.team);
+    }
+
     return third?.team ?? slot;
   }
 
-  private roundOf32MatchesBefore(slot: string): Match[] {
-    const roundOf32 = this.allMatches().filter((match) => match.stage === 'Round of 32').sort((a, b) => a.match_number - b.match_number);
-    const index = roundOf32.findIndex((match) => match.home_team === slot || match.away_team === slot);
-    return index > -1 ? roundOf32.slice(0, index) : [];
-  }
-
-  private resolveSlot(slot: string, stages: Record<string, BracketMatch[]>): string {
+  private resolveSlot(slot: string, stages: Record<string, BracketMatch[]>, assignedThirdPlaceTeams: Set<string>): string {
     const groupWinner = /^Winner Group ([A-L])$/.exec(slot);
     if (groupWinner) {
       return this.groupRank(`Group ${groupWinner[1]}`, 1);
@@ -503,7 +497,7 @@ export class BracketComponent implements OnInit {
     }
 
     if (slot.startsWith('Third Group ')) {
-      return this.thirdTeamForSlot(slot, stages);
+      return this.thirdTeamForSlot(slot, assignedThirdPlaceTeams);
     }
 
     const matchWinner = /^Winner Match (\d+)$/.exec(slot);
