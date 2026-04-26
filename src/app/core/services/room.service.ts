@@ -32,11 +32,11 @@ export class RoomService {
       }
 
       if (!error || error.code !== '23505') {
-        throw new Error(error?.message ?? 'Could not create room.');
+        throw new Error('We could not create that room. Please try again.');
       }
     }
 
-    throw new Error('Could not create a unique room code. Try again.');
+    throw new Error('We could not create a room code. Please try again.');
   }
 
   async joinRoom(code: string, playerId: string): Promise<Room> {

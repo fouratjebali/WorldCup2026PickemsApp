@@ -228,7 +228,7 @@ export class BracketComponent implements OnInit {
       this.hydrateKnockoutSelections(pickems);
       this.hydrateLocalDraft(player.id);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load bracket.');
+      this.error.set('We could not load the bracket. Please refresh and try again.');
     } finally {
       this.loading.set(false);
     }
@@ -387,7 +387,7 @@ export class BracketComponent implements OnInit {
       this.lockedMatchIds.set(knockoutMatches.map((match) => match.id));
       this.clearLocalDraft();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not save bracket. Please retry.');
+      this.error.set('We could not save your bracket. Please try again.');
     } finally {
       this.saving.set(false);
     }

@@ -279,7 +279,7 @@ export class MemberPickemsComponent implements OnInit {
       this.matches.set(await this.matchService.listMatches());
       await this.loadCurrentGroup();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load member pickems.');
+      this.error.set(error instanceof Error ? error.message : 'We could not load these pickems. Please refresh and try again.');
     } finally {
       this.loading.set(false);
     }
@@ -423,7 +423,7 @@ export class MemberPickemsComponent implements OnInit {
     try {
       await loader();
     } catch (error) {
-      this.sectionError.set(error instanceof Error ? error.message : 'Could not load this section.');
+      this.sectionError.set(error instanceof Error ? error.message : 'We could not load this section. Please try again.');
     } finally {
       this.sectionLoading.set(false);
     }

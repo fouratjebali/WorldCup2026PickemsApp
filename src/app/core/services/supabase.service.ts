@@ -29,9 +29,7 @@ export class SupabaseService {
 
   get client(): SupabaseClient {
     if (!this.supabaseClient) {
-      throw new Error(
-        'Supabase is not configured yet. Update src/environments/environment.ts with your project URL and anon key.',
-      );
+      throw new Error('The app is temporarily unavailable. Please try again later.');
     }
 
     return this.supabaseClient;

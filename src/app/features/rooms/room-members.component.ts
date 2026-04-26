@@ -113,7 +113,7 @@ export class RoomMembersComponent implements OnInit {
       this.room.set(room);
       this.members.set(members);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load room members.');
+      this.error.set(error instanceof Error ? error.message : 'We could not load the room members. Please refresh and try again.');
     } finally {
       this.loading.set(false);
     }

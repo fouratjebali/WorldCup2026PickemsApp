@@ -156,7 +156,7 @@ export class RoomsComponent implements OnInit {
         await this.reloadRooms();
       }
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load rooms.');
+      this.error.set(error instanceof Error ? error.message : 'We could not load your rooms. Please refresh and try again.');
     } finally {
       this.loading.set(false);
     }
@@ -200,7 +200,7 @@ export class RoomsComponent implements OnInit {
       return;
     }
 
-    this.error.set('Could not copy automatically. Select the invite link below the room and copy it manually.');
+    this.error.set('Copy was blocked by your browser. Select the invite link below the room and copy it manually.');
   }
 
   inviteLink(room: Room): string {
@@ -222,7 +222,7 @@ export class RoomsComponent implements OnInit {
       this.pendingRoom.set(null);
       await this.router.navigate(['/pickems'], { queryParams: { roomId: room.id } });
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not copy your pickems. Please retry.');
+      this.error.set(error instanceof Error ? error.message : 'We could not copy your pickems. Please try again.');
     } finally {
       this.busy.set(false);
     }
@@ -320,7 +320,7 @@ export class RoomsComponent implements OnInit {
       await action();
       await this.reloadRooms();
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Room action failed. Please retry.');
+      this.error.set(error instanceof Error ? error.message : 'We could not finish that room action. Please try again.');
     } finally {
       this.busy.set(false);
     }

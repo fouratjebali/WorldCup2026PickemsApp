@@ -9,19 +9,17 @@ import { SupabaseService } from '../../core/services/supabase.service';
   template: `
     <section class="mx-auto max-w-4xl space-y-6">
       <div>
-        <p class="text-sm font-black uppercase tracking-[0.18em] text-amber-300">Local data helper</p>
-        <h1 class="mt-2 text-4xl font-black text-white">Admin data loader</h1>
+        <p class="text-sm font-black uppercase tracking-[0.18em] text-amber-300">Match management</p>
+        <h1 class="mt-2 text-4xl font-black text-white">Update match data</h1>
         <p class="mt-3 leading-7 text-slate-300">
-          This page is protected only by being unlinked from the main navigation. It is useful for local/dev seed updates,
-          not for secure production administration.
+          Paste a match list to update fixtures, scores, or match status.
         </p>
       </div>
 
       <div class="page-card border-amber-300/30 bg-amber-300/10">
-        <p class="font-bold text-amber-100">Production warning</p>
+        <p class="font-bold text-amber-100">Careful action</p>
         <p class="mt-2 text-sm leading-6 text-amber-50/80">
-          Do not expose a Supabase service role key in frontend code. For real result updates, use the Supabase dashboard,
-          SQL editor, or a properly secured server-side function.
+          Changes made here can affect everyone playing. Review the match numbers and results before saving.
         </p>
       </div>
 
@@ -31,7 +29,7 @@ import { SupabaseService } from '../../core/services/supabase.service';
           <textarea class="field min-h-72 font-mono text-sm" [(ngModel)]="jsonText"></textarea>
         </label>
         <button class="btn-primary" type="button" [disabled]="saving()" (click)="loadJson()">
-          {{ saving() ? 'Loading...' : 'Upsert matches' }}
+          {{ saving() ? 'Saving...' : 'Save matches' }}
         </button>
         @if (message()) {
           <p class="rounded-md border border-emerald-300/30 bg-emerald-400/10 p-3 text-sm text-emerald-100">{{ message() }}</p>
@@ -96,7 +94,7 @@ export class AdminDataComponent {
 
       this.message.set(`Loaded ${cleanMatches.length} matches.`);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load JSON.');
+      this.error.set(error instanceof Error ? error.message : 'We could not save the match data.');
     } finally {
       this.saving.set(false);
     }

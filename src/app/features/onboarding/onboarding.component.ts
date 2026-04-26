@@ -273,8 +273,7 @@ function buildCountryList(): string[] {
         <p class="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">Player profile</p>
         <h1 class="mt-2 text-3xl font-black text-white sm:text-5xl">Choose your pickems identity</h1>
         <p class="mt-3 leading-7 text-slate-300">
-          This profile is tied to a random token stored in this browser. There is no account recovery without real
-          authentication.
+          Your profile is saved on this browser, so you can come back later from the same device and continue your picks.
         </p>
       </div>
 
@@ -330,7 +329,7 @@ export class OnboardingComponent implements OnInit {
         this.form.patchValue({ nickname: player.nickname, nationality: player.nationality });
       }
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load stored profile.');
+      this.error.set('We could not load your profile. You can still save your details again.');
     }
   }
 
@@ -346,7 +345,7 @@ export class OnboardingComponent implements OnInit {
       await this.playerService.saveProfile(this.form.controls.nickname.value, this.form.controls.nationality.value);
       await this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') || '/pickems');
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not save profile. Please retry.');
+      this.error.set('We could not save your profile. Please check your details and try again.');
     } finally {
       this.saving.set(false);
     }

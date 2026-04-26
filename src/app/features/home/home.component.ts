@@ -84,7 +84,7 @@ export class HomeComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     if (!this.supabase.isConfigured()) {
-      this.error.set('Supabase is not configured yet. Add your URL and anon key in src/environments/environment.ts.');
+      this.error.set('The app is not ready yet. Please try again later.');
       return;
     }
 
@@ -102,7 +102,7 @@ export class HomeComponent implements OnInit {
         { value: String(knockoutMatches.length), label: 'knockout matches' },
       ]);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load home data.');
+      this.error.set('We could not load the latest tournament info. Refresh the page to try again.');
     }
   }
 }

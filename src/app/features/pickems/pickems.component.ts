@@ -243,7 +243,7 @@ export class PickemsComponent implements OnInit {
       this.hydrateSelections(pickems);
       this.hydrateManualOrders(standingPicks);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load group picks.');
+      this.error.set('We could not load your group picks. Please refresh and try again.');
     } finally {
       this.loading.set(false);
     }
@@ -393,7 +393,7 @@ export class PickemsComponent implements OnInit {
         this.goToNextGroup();
       }
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not save this group. Please retry.');
+      this.error.set('We could not save this group. Please try again.');
     } finally {
       this.saving.set(false);
     }

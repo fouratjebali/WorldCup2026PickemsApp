@@ -17,7 +17,7 @@ import { RoomService } from '../../core/services/room.service';
             {{ room() ? room()?.name : 'Global standings' }}
           </h1>
           <p class="mt-3 max-w-2xl leading-7 text-slate-300">
-            Cached standings keep page loads light. Recalculate cache after match results are updated.
+            See who is leading the table as World Cup results roll in.
           </p>
         </div>
         @if (room()) {
@@ -82,7 +82,7 @@ export class LeaderboardComponent implements OnInit {
         this.entries.set(await this.leaderboardService.listGlobal());
       }
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load leaderboard.');
+      this.error.set('We could not load the leaderboard right now. Please refresh and try again.');
     } finally {
       this.loading.set(false);
     }
