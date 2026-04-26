@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Player } from '../../core/models/player.model';
+import { MatchService } from '../../core/services/match.service';
 import { PlayerService } from '../../core/services/player.service';
 import { SupabaseService } from '../../core/services/supabase.service';
 
@@ -50,7 +51,7 @@ import { SupabaseService } from '../../core/services/supabase.service';
 
       <div class="page-card">
         <div class="grid grid-cols-2 gap-3">
-          @for (item of stats; track item.label) {
+          @for (item of stats(); track item.label) {
             <div class="rounded-lg bg-slate-950/70 p-4">
               <p class="text-3xl font-black text-white">{{ item.value }}</p>
               <p class="mt-1 text-sm text-slate-400">{{ item.label }}</p>
@@ -59,7 +60,7 @@ import { SupabaseService } from '../../core/services/supabase.service';
         </div>
         <div class="mt-5 rounded-lg border border-white/10 bg-gradient-to-br from-emerald-400/20 via-white/5 to-red-400/20 p-5">
           <p class="text-sm font-bold uppercase tracking-[0.16em] text-emerald-200">Scoring</p>
-          <p class="mt-3 text-2xl font-black">5 for exact score. 3 for winner. 1 goal-difference bonus.</p>
+          <p class="mt-3 text-2xl font-black">Winner-only picks: 1 group, 2 R32, 3 R16, 5 QF, 8 SF, 10 third, 15 final.</p>
         </div>
       </div>
     </section>
@@ -68,15 +69,16 @@ import { SupabaseService } from '../../core/services/supabase.service';
 export class HomeComponent implements OnInit {
   readonly player = signal<Player | null>(null);
   readonly error = signal('');
-  readonly stats = [
-    { value: '104', label: 'tournament matches' },
-    { value: '7', label: 'stages supported' },
-    { value: '50', label: 'leaderboard limit' },
-    { value: '0', label: 'passwords needed' },
-  ];
+  readonly stats = signal([
+    { value: '-', label: 'tournament matches' },
+    { value: '-', label: 'groups in draw' },
+    { value: '-', label: 'stages supported' },
+    { value: '-', label: 'knockout matches' },
+  ]);
 
   constructor(
     private readonly playerService: PlayerService,
+    private readonly matchService: MatchService,
     private readonly supabase: SupabaseService,
   ) {}
 
@@ -87,9 +89,20 @@ export class HomeComponent implements OnInit {
     }
 
     try {
-      this.player.set(await this.playerService.loadStoredPlayer());
+      const [player, matches] = await Promise.all([this.playerService.loadStoredPlayer(), this.matchService.listMatches()]);
+      const groups = new Set(matches.filter((match) => match.stage === 'Group stage' && match.group_name).map((match) => match.group_name));
+      const stages = new Set(matches.map((match) => match.stage));
+      const knockoutMatches = matches.filter((match) => match.stage !== 'Group stage');
+
+      this.player.set(player);
+      this.stats.set([
+        { value: String(matches.length), label: 'tournament matches' },
+        { value: String(groups.size), label: 'groups in draw' },
+        { value: String(stages.size), label: 'stages supported' },
+        { value: String(knockoutMatches.length), label: 'knockout matches' },
+      ]);
     } catch (error) {
-      this.error.set(error instanceof Error ? error.message : 'Could not load player profile.');
+      this.error.set(error instanceof Error ? error.message : 'Could not load home data.');
     }
   }
 }
