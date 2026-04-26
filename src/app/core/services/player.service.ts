@@ -107,11 +107,28 @@ export class PlayerService {
 
   private async getDeviceTokenHash(): Promise<string> {
     const token = this.getOrCreateDeviceToken();
+    if (!crypto.subtle?.digest) {
+      return this.fallbackTokenHash(token);
+    }
+
     const encoded = new TextEncoder().encode(token);
     const digest = await crypto.subtle.digest('SHA-256', encoded);
     return Array.from(new Uint8Array(digest))
       .map((byte) => byte.toString(16).padStart(2, '0'))
       .join('');
+  }
+
+  private fallbackTokenHash(token: string): string {
+    // Older or non-secure browser contexts may not expose Web Crypto digest.
+    // This is not a password hash; it is only a stable lookup key for the local anonymous device token.
+    let hash = 0x811c9dc5;
+
+    for (let index = 0; index < token.length; index += 1) {
+      hash ^= token.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+
+    return `fallback-${(hash >>> 0).toString(16).padStart(8, '0')}`;
   }
 
   private cleanText(value: string, maxLength: number): string {
