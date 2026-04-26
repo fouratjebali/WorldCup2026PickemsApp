@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { GroupStandingPick } from '../../core/models/group-standing-pick.model';
 import { Match } from '../../core/models/match.model';
@@ -17,6 +17,7 @@ interface TeamStanding {
 
 @Component({
   selector: 'app-pickems',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink],
   template: `
     <section class="space-y-6">
@@ -203,6 +204,9 @@ export class PickemsComponent implements OnInit {
   readonly selections = signal<Record<string, string>>({});
   readonly lockedMatchIds = signal<string[]>([]);
   readonly manualGroupOrders = signal<Record<string, string[]>>({});
+  readonly currentGroup = computed(() => this.groups()[this.currentGroupIndex()] ?? '');
+  readonly currentGroupMatches = computed(() => this.matchesForGroup(this.currentGroup()));
+  readonly currentStandings = computed(() => this.calculateStandings(this.currentGroup()));
   roomId: string | null = null;
 
   constructor(
@@ -240,18 +244,6 @@ export class PickemsComponent implements OnInit {
     } finally {
       this.loading.set(false);
     }
-  }
-
-  currentGroup(): string {
-    return this.groups()[this.currentGroupIndex()] ?? '';
-  }
-
-  currentGroupMatches(): Match[] {
-    return this.matchesForGroup(this.currentGroup());
-  }
-
-  currentStandings(): TeamStanding[] {
-    return this.calculateStandings(this.currentGroup());
   }
 
   goToGroup(index: number): void {
@@ -306,7 +298,7 @@ export class PickemsComponent implements OnInit {
 
   canMoveStandingUp(index: number): boolean {
     const standings = this.currentStandings();
-    return !this.isGroupSaved(this.currentGroup()) && index > 0 && standings[index].points === standings[index - 1].points;
+    return !this.isGroupSaved(this.currentGroup()) && index > 0 && standings[index]?.points === standings[index - 1]?.points;
   }
 
   canMoveStandingDown(index: number): boolean {
@@ -314,7 +306,7 @@ export class PickemsComponent implements OnInit {
     return (
       !this.isGroupSaved(this.currentGroup()) &&
       index < standings.length - 1 &&
-      standings[index].points === standings[index + 1].points
+      standings[index]?.points === standings[index + 1]?.points
     );
   }
 
