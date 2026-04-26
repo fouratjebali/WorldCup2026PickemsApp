@@ -46,10 +46,5 @@ export const routes: Routes = [
     loadComponent: () => import('./features/rules/rules.component').then((m) => m.RulesComponent),
     title: 'Rules',
   },
-  {
-    path: 'admin-data',
-    loadComponent: () => import('./features/admin-data/admin-data.component').then((m) => m.AdminDataComponent),
-    title: 'Admin Data',
-  },
   { path: '**', redirectTo: '' },
 ];
