@@ -103,6 +103,16 @@ import { RoomService } from '../../core/services/room.service';
                     </button>
                   }
                 </div>
+                <label class="mt-4 block space-y-2">
+                  <span class="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Invite link</span>
+                  <input
+                    class="field font-mono text-xs"
+                    readonly
+                    [value]="inviteLink(room)"
+                    (focus)="$any($event.target).select()"
+                    (click)="$any($event.target).select()"
+                  />
+                </label>
               </article>
             }
           </div>
@@ -178,18 +188,19 @@ export class RoomsComponent implements OnInit {
 
   async copyInviteLink(room: Room): Promise<void> {
     const link = this.inviteLink(room);
+    this.error.set('');
 
-    try {
-      await navigator.clipboard.writeText(link);
+    if (await this.copyTextToClipboard(link)) {
       this.copiedRoomId.set(room.id);
       window.setTimeout(() => {
         if (this.copiedRoomId() === room.id) {
           this.copiedRoomId.set('');
         }
       }, 1800);
-    } catch {
-      this.error.set('Could not copy the invite link. The room code is still visible if you want to share it manually.');
+      return;
     }
+
+    this.error.set('Could not copy automatically. Select the invite link below the room and copy it manually.');
   }
 
   inviteLink(room: Room): string {
@@ -270,6 +281,35 @@ export class RoomsComponent implements OnInit {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  private async copyTextToClipboard(text: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // Fall through to the textarea fallback for browsers that expose the API but block it.
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    try {
+      return document.execCommand('copy');
+    } catch {
+      return false;
+    } finally {
+      document.body.removeChild(textarea);
+    }
   }
 
   private async runRoomAction(action: () => Promise<void>): Promise<void> {
