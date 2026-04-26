@@ -124,7 +124,7 @@ interface TeamStanding {
                 <button class="btn-primary" type="button" (click)="goToNextGroup()">Next group</button>
               } @else {
                 <button class="btn-primary" type="button" [disabled]="!canSaveCurrentGroup() || saving()" (click)="saveCurrentGroup()">
-                  {{ saving() ? 'Saving...' : 'Save group' }}
+                  {{ saving() ? 'Saving...' : isLastGroup() ? 'Save & go to bracket' : 'Save & next group' }}
                 </button>
               }
             </div>
@@ -255,6 +255,10 @@ export class PickemsComponent implements OnInit {
     this.currentGroupIndex.set(next);
   }
 
+  isLastGroup(): boolean {
+    return this.currentGroupIndex() === this.groups().length - 1;
+  }
+
   isCurrentGroup(index: number): boolean {
     return this.currentGroupIndex() === index;
   }
@@ -349,32 +353,42 @@ export class PickemsComponent implements OnInit {
 
     try {
       const matches = this.currentGroupMatches();
-      await this.pickemsService.savePickems(
-        matches.map((match) => ({
-          playerId: player.id,
-          roomId: this.roomId,
-          matchId: match.id,
-          predictedHomeScore: null,
-          predictedAwayScore: null,
-          predictedWinnerTeam: this.selections()[match.id],
-          locked: true,
-        })),
-      );
+      const group = this.currentGroup();
+      const standings = this.currentStandings();
 
-      await this.pickemsService.saveGroupStandings(
-        this.currentStandings().map((standing, index) => ({
-          playerId: player.id,
-          roomId: this.roomId,
-          groupName: this.currentGroup(),
-          team: standing.team,
-          rank: index + 1,
-          points: standing.points,
-          wins: standing.wins,
-          locked: true,
-        })),
-      );
+      await Promise.all([
+        this.pickemsService.savePickems(
+          matches.map((match) => ({
+            playerId: player.id,
+            roomId: this.roomId,
+            matchId: match.id,
+            predictedHomeScore: null,
+            predictedAwayScore: null,
+            predictedWinnerTeam: this.selections()[match.id],
+            locked: true,
+          })),
+        ),
+        this.pickemsService.saveGroupStandings(
+          standings.map((standing, index) => ({
+            playerId: player.id,
+            roomId: this.roomId,
+            groupName: group,
+            team: standing.team,
+            rank: index + 1,
+            points: standing.points,
+            wins: standing.wins,
+            locked: true,
+          })),
+        ),
+      ]);
 
       this.lockedMatchIds.update((ids) => [...new Set([...ids, ...matches.map((match) => match.id)])]);
+
+      if (this.isLastGroup()) {
+        await this.router.navigate(['/bracket'], { queryParams: this.roomId ? { roomId: this.roomId } : undefined });
+      } else {
+        this.goToNextGroup();
+      }
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Could not save this group. Please retry.');
     } finally {
