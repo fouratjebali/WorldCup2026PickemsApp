@@ -32,8 +32,8 @@ interface BracketMatch {
           <p class="text-sm font-black uppercase tracking-[0.18em] text-emerald-300">Knockout bracket</p>
           <h1 class="mt-2 text-4xl font-black text-white">Build your champion path</h1>
           <p class="mt-3 max-w-2xl leading-7 text-slate-300">
-            Click the team that advances in each match. Winners move into the next round automatically. Once you save the
-            bracket, every knockout pick is locked.
+            Pick one knockout round at a time. Finish the Round of 32, move to the Round of 16, and keep advancing teams
+            until you choose the champion.
           </p>
         </div>
 
@@ -59,56 +59,109 @@ interface BracketMatch {
             <p class="mt-2 text-4xl font-black text-white">{{ champion() }}</p>
             <p class="mt-2 text-sm text-slate-300">These bracket picks are locked.</p>
           </div>
-        } @else if (champion()) {
-          <div class="page-card flex flex-col gap-4 border-emerald-300/30 bg-emerald-400/10 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p class="text-sm font-black uppercase tracking-[0.16em] text-emerald-200">Champion selected</p>
-              <p class="mt-2 text-3xl font-black text-white">{{ champion() }}</p>
-            </div>
-            <button class="btn-primary" type="button" [disabled]="saving()" (click)="saveBracket()">
-              {{ saving() ? 'Saving...' : 'Save final bracket' }}
-            </button>
-          </div>
         }
 
-        <div class="grid gap-4 xl:grid-cols-2">
-          @for (stage of knockoutStages; track stage) {
-            <div class="space-y-3">
-              <h2 class="text-2xl font-black text-white">{{ stage }}</h2>
-              @for (bracketMatch of bracketMatches(stage); track bracketMatch.match.id) {
-                <article class="page-card">
-                  <div class="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-                    <span>Match {{ bracketMatch.match.match_number }}</span>
-                    <span>{{ selectedWinner(bracketMatch.match.id) || 'Pending' }}</span>
-                  </div>
+        <div class="flex gap-2 overflow-x-auto pb-2">
+          @for (stage of knockoutStages; track stage; let index = $index) {
+            <button
+              type="button"
+              class="min-w-36 rounded-md px-3 py-2 text-sm font-black transition"
+              [class.bg-emerald-400]="isCurrentStage(index)"
+              [class.text-slate-950]="isCurrentStage(index)"
+              [class.bg-white]="!isCurrentStage(index) && isStageComplete(stage)"
+              [class.text-slate-950]="!isCurrentStage(index) && isStageComplete(stage)"
+              [class.bg-white/10]="!isCurrentStage(index) && !isStageComplete(stage)"
+              [class.text-slate-200]="!isCurrentStage(index) && !isStageComplete(stage)"
+              [disabled]="!canOpenStage(index)"
+              (click)="goToStage(index)"
+            >
+              {{ stage }}
+            </button>
+          }
+        </div>
 
-                  <div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-                    <button
-                      type="button"
-                      [class]="teamButtonClass(bracketMatch.match.id, bracketMatch.homeTeam)"
-                      [disabled]="!bracketMatch.canPick || isBracketSaved()"
-                      (click)="selectWinner(bracketMatch.match.id, bracketMatch.homeTeam)"
-                    >
-                      {{ bracketMatch.homeTeam }}
-                    </button>
+        <div class="grid gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
+          <div class="space-y-3">
+            <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+              <div>
+                <h2 class="text-3xl font-black text-white">{{ currentStage() }}</h2>
+                <p class="mt-1 text-sm text-slate-400">
+                  {{ selectedCount(currentStage()) }} / {{ currentStageMatches().length }} matches picked
+                </p>
+              </div>
 
-                    <span class="hidden rounded-md bg-white/10 px-3 py-2 text-center text-xs font-black text-slate-300 sm:block">
-                      VS
-                    </span>
-
-                    <button
-                      type="button"
-                      [class]="teamButtonClass(bracketMatch.match.id, bracketMatch.awayTeam)"
-                      [disabled]="!bracketMatch.canPick || isBracketSaved()"
-                      (click)="selectWinner(bracketMatch.match.id, bracketMatch.awayTeam)"
-                    >
-                      {{ bracketMatch.awayTeam }}
-                    </button>
-                  </div>
-                </article>
+              @if (isStageComplete(currentStage())) {
+                <span class="rounded-md bg-emerald-400 px-3 py-2 text-sm font-black text-slate-950">Complete</span>
               }
             </div>
-          }
+
+            @for (bracketMatch of currentStageMatches(); track bracketMatch.match.id) {
+              <article class="page-card">
+                <div class="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                  <span>Match {{ bracketMatch.match.match_number }}</span>
+                  <span>{{ selectedWinner(bracketMatch.match.id) || 'Pending' }}</span>
+                </div>
+
+                <div class="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+                  <button
+                    type="button"
+                    [class]="teamButtonClass(bracketMatch.match.id, bracketMatch.homeTeam)"
+                    [disabled]="!bracketMatch.canPick || isBracketSaved()"
+                    (click)="selectWinner(bracketMatch.match.id, bracketMatch.homeTeam)"
+                  >
+                    {{ bracketMatch.homeTeam }}
+                  </button>
+
+                  <span class="hidden rounded-md bg-white/10 px-3 py-2 text-center text-xs font-black text-slate-300 sm:block">
+                    VS
+                  </span>
+
+                  <button
+                    type="button"
+                    [class]="teamButtonClass(bracketMatch.match.id, bracketMatch.awayTeam)"
+                    [disabled]="!bracketMatch.canPick || isBracketSaved()"
+                    (click)="selectWinner(bracketMatch.match.id, bracketMatch.awayTeam)"
+                  >
+                    {{ bracketMatch.awayTeam }}
+                  </button>
+                </div>
+              </article>
+            }
+
+            <div class="page-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="font-black text-white">{{ currentStageActionTitle() }}</p>
+                <p class="mt-1 text-sm text-slate-400">{{ currentStageActionText() }}</p>
+              </div>
+
+              @if (isFinalStage()) {
+                <button class="btn-primary" type="button" [disabled]="!champion() || isBracketSaved() || saving()" (click)="saveBracket()">
+                  {{ saving() ? 'Saving...' : isBracketSaved() ? 'Saved' : 'Save bracket' }}
+                </button>
+              } @else {
+                <button class="btn-primary" type="button" [disabled]="!isStageComplete(currentStage())" (click)="goToNextStage()">
+                  Next round
+                </button>
+              }
+            </div>
+          </div>
+
+          <aside class="page-card sticky top-6">
+            <h2 class="text-2xl font-black text-white">Path summary</h2>
+            <div class="mt-4 space-y-3">
+              @for (stage of knockoutStages; track stage) {
+                <div class="rounded-lg bg-slate-950/70 p-3">
+                  <div class="flex items-center justify-between gap-3">
+                    <p class="font-black text-white">{{ stage }}</p>
+                    <p class="text-sm font-bold text-slate-400">{{ selectedCount(stage) }} / {{ bracketMatches(stage).length }}</p>
+                  </div>
+                  @if (stage === 'Final' && champion()) {
+                    <p class="mt-2 text-sm text-emerald-200">Champion: {{ champion() }}</p>
+                  }
+                </div>
+              }
+            </div>
+          </aside>
         </div>
       }
     </section>
@@ -123,6 +176,7 @@ export class BracketComponent implements OnInit {
   readonly groupPickems = signal<Pickem[]>([]);
   readonly selections = signal<Record<string, string>>({});
   readonly lockedMatchIds = signal<string[]>([]);
+  readonly currentStageIndex = signal(0);
   readonly knockoutStages = ['Round of 32', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Third-place match', 'Final'];
   roomId: string | null = null;
 
@@ -180,6 +234,68 @@ export class BracketComponent implements OnInit {
           canPick: !homeTeam.startsWith('Winner ') && !homeTeam.startsWith('Loser ') && !awayTeam.startsWith('Winner ') && !awayTeam.startsWith('Loser '),
         };
       });
+  }
+
+  currentStage(): string {
+    return this.knockoutStages[this.currentStageIndex()] ?? this.knockoutStages[0];
+  }
+
+  currentStageMatches(): BracketMatch[] {
+    return this.bracketMatches(this.currentStage());
+  }
+
+  goToStage(index: number): void {
+    if (this.canOpenStage(index)) {
+      this.currentStageIndex.set(index);
+    }
+  }
+
+  goToNextStage(): void {
+    const next = Math.min(this.currentStageIndex() + 1, this.knockoutStages.length - 1);
+    if (this.canOpenStage(next)) {
+      this.currentStageIndex.set(next);
+    }
+  }
+
+  isCurrentStage(index: number): boolean {
+    return this.currentStageIndex() === index;
+  }
+
+  canOpenStage(index: number): boolean {
+    if (index <= 0 || this.isBracketSaved()) {
+      return true;
+    }
+
+    return this.knockoutStages.slice(0, index).every((stage) => this.isStageComplete(stage));
+  }
+
+  isStageComplete(stage: string): boolean {
+    const matches = this.bracketMatches(stage);
+    return matches.length > 0 && matches.every((bracketMatch) => Boolean(this.selections()[bracketMatch.match.id]));
+  }
+
+  selectedCount(stage: string): number {
+    return this.bracketMatches(stage).filter((bracketMatch) => this.selections()[bracketMatch.match.id]).length;
+  }
+
+  isFinalStage(): boolean {
+    return this.currentStage() === 'Final';
+  }
+
+  currentStageActionTitle(): string {
+    if (this.isFinalStage()) {
+      return this.champion() ? `Champion: ${this.champion()}` : 'Choose your champion';
+    }
+
+    return this.isStageComplete(this.currentStage()) ? 'Round complete' : 'Finish this round';
+  }
+
+  currentStageActionText(): string {
+    if (this.isFinalStage()) {
+      return 'Save the bracket after choosing the final winner. You cannot edit it afterward.';
+    }
+
+    return 'Pick every winner in this round to unlock the next round.';
   }
 
   selectWinner(matchId: string, team: string): void {
