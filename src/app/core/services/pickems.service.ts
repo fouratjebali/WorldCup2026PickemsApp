@@ -42,6 +42,24 @@ export class PickemsService {
     return (data ?? []) as Pickem[];
   }
 
+  async listPlayerPickemsForMatches(playerId: string, roomId: string | null, matchIds: string[]): Promise<Pickem[]> {
+    if (!matchIds.length) {
+      return [];
+    }
+
+    let query = this.supabase.client.from('pickems').select('*').eq('player_id', playerId).in('match_id', matchIds);
+
+    query = roomId ? query.eq('room_id', roomId) : query.is('room_id', null);
+
+    const { data, error } = await query.order('created_at', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data ?? []) as Pickem[];
+  }
+
   async savePickem(draft: PickemDraft): Promise<Pickem> {
     const { data, error } = await this.supabase.client
       .from('pickems')
@@ -103,6 +121,24 @@ export class PickemsService {
     query = roomId ? query.eq('room_id', roomId) : query.is('room_id', null);
 
     const { data, error } = await query.order('group_name', { ascending: true }).order('rank', { ascending: true });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data ?? []) as GroupStandingPick[];
+  }
+
+  async listPlayerGroupStandingsForGroup(playerId: string, roomId: string | null, groupName: string): Promise<GroupStandingPick[]> {
+    let query = this.supabase.client
+      .from('group_standing_picks')
+      .select('*')
+      .eq('player_id', playerId)
+      .eq('group_name', groupName);
+
+    query = roomId ? query.eq('room_id', roomId) : query.is('room_id', null);
+
+    const { data, error } = await query.order('rank', { ascending: true });
 
     if (error) {
       throw new Error(error.message);
