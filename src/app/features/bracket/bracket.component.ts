@@ -23,6 +23,8 @@ interface BracketMatch {
   canPick: boolean;
 }
 
+const BRACKET_DRAFT_PREFIX = 'wc2026_pickems_bracket_draft';
+
 @Component({
   selector: 'app-bracket',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -221,6 +223,7 @@ export class BracketComponent implements OnInit {
       this.groupPickems.set(pickems.filter((pickem) => this.matchById(pickem.match_id)?.stage === 'Group stage'));
       this.savedGroupStandings.set(standingPicks);
       this.hydrateKnockoutSelections(pickems);
+      this.hydrateLocalDraft(player.id);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Could not load bracket.');
     } finally {
@@ -299,7 +302,9 @@ export class BracketComponent implements OnInit {
 
     this.selections.update((current) => {
       const next = { ...current, [matchId]: team };
-      return this.removeInvalidDownstreamSelections(next);
+      const clean = this.removeInvalidDownstreamSelections(next);
+      this.saveLocalDraft(clean);
+      return clean;
     });
   }
 
@@ -364,6 +369,7 @@ export class BracketComponent implements OnInit {
       );
 
       this.lockedMatchIds.set(knockoutMatches.map((match) => match.id));
+      this.clearLocalDraft();
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Could not save bracket. Please retry.');
     } finally {
@@ -616,5 +622,44 @@ export class BracketComponent implements OnInit {
 
     this.selections.set(selections);
     this.lockedMatchIds.set(lockedIds);
+  }
+
+  private hydrateLocalDraft(playerId: string): void {
+    if (this.isBracketSaved()) {
+      this.clearLocalDraft();
+      return;
+    }
+
+    const rawDraft = localStorage.getItem(this.localDraftKey(playerId));
+    if (!rawDraft) {
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(rawDraft) as Record<string, string>;
+      this.selections.set(this.removeInvalidDownstreamSelections({ ...this.selections(), ...draft }));
+    } catch {
+      this.clearLocalDraft();
+    }
+  }
+
+  private saveLocalDraft(selections: Record<string, string>): void {
+    const player = this.player();
+    if (!player || this.isBracketSaved()) {
+      return;
+    }
+
+    localStorage.setItem(this.localDraftKey(player.id), JSON.stringify(selections));
+  }
+
+  private clearLocalDraft(): void {
+    const player = this.player();
+    if (player) {
+      localStorage.removeItem(this.localDraftKey(player.id));
+    }
+  }
+
+  private localDraftKey(playerId: string): string {
+    return `${BRACKET_DRAFT_PREFIX}:${playerId}:${this.roomId ?? 'global'}`;
   }
 }
