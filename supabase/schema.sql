@@ -228,6 +228,31 @@ begin
 end;
 $$;
 
+-- No-auth helper used by the static frontend. It only deletes the room when the supplied local player id is the creator.
+-- Because this MVP has no real authentication, this is a convenience guard, not strong identity security.
+create or replace function delete_room_as_creator(p_room_id uuid, p_player_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  deleted_count integer;
+begin
+  delete from rooms
+  where id = p_room_id
+    and created_by_player_id = p_player_id;
+
+  get diagnostics deleted_count = row_count;
+
+  if deleted_count = 0 then
+    raise exception 'Only the room creator can delete this room.';
+  end if;
+end;
+$$;
+
+grant execute on function delete_room_as_creator(uuid, uuid) to anon;
+
 alter table players enable row level security;
 alter table rooms enable row level security;
 alter table room_members enable row level security;

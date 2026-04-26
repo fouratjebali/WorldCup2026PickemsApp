@@ -77,13 +77,28 @@ import { RoomService } from '../../core/services/room.service';
                     <p class="text-xl font-black">{{ room.name }}</p>
                     <p class="mt-1 font-mono text-sm text-emerald-200">{{ room.code }}</p>
                   </div>
-                  <span class="rounded-md bg-white/10 px-2 py-1 text-xs font-black">Private</span>
+                  <div class="flex flex-col items-end gap-2">
+                    <span class="rounded-md bg-white/10 px-2 py-1 text-xs font-black">Private</span>
+                    @if (isRoomCreator(room)) {
+                      <span class="rounded-md bg-emerald-400/15 px-2 py-1 text-xs font-black text-emerald-200">Creator</span>
+                    }
+                  </div>
                 </div>
                 <div class="mt-4 flex flex-wrap gap-2">
                   <a class="btn-primary" [routerLink]="['/pickems']" [queryParams]="{ roomId: room.id }">Room picks</a>
                   <a class="btn-secondary" [routerLink]="['/bracket']" [queryParams]="{ roomId: room.id }">Bracket</a>
                   <a class="btn-secondary" [routerLink]="['/leaderboard']" [queryParams]="{ roomId: room.id }">Leaderboard</a>
                   <a class="btn-secondary" [routerLink]="['/rooms', room.id, 'members']">Members</a>
+                  @if (isRoomCreator(room)) {
+                    <button
+                      class="inline-flex items-center justify-center rounded-md border border-red-300/30 bg-red-400/10 px-4 py-2 font-bold text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      type="button"
+                      [disabled]="busy()"
+                      (click)="deleteRoom(room)"
+                    >
+                      Delete
+                    </button>
+                  }
                 </div>
               </article>
             }
@@ -178,6 +193,29 @@ export class RoomsComponent implements OnInit {
 
     this.pendingRoom.set(null);
     await this.router.navigate(['/pickems'], { queryParams: { roomId: room.id } });
+  }
+
+  async deleteRoom(room: Room): Promise<void> {
+    if (!this.player || this.busy() || !this.isRoomCreator(room)) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete "${room.name}"? This removes the room for every member and cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    await this.runRoomAction(async () => {
+      await this.roomService.deleteRoom(room.id, this.player!.id);
+
+      if (this.pendingRoom()?.id === room.id) {
+        this.pendingRoom.set(null);
+      }
+    });
+  }
+
+  isRoomCreator(room: Room): boolean {
+    return this.player?.id === room.created_by_player_id;
   }
 
   private async runRoomAction(action: () => Promise<void>): Promise<void> {

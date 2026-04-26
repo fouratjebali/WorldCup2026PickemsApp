@@ -98,6 +98,17 @@ export class RoomService {
     return (data ?? []) as unknown as RoomMember[];
   }
 
+  async deleteRoom(roomId: string, playerId: string): Promise<void> {
+    const { error } = await this.supabase.client.rpc('delete_room_as_creator', {
+      p_room_id: roomId,
+      p_player_id: playerId,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }
+
   private async joinRoomById(roomId: string, playerId: string): Promise<void> {
     const { error } = await this.supabase.client
       .from('room_members')
