@@ -1,6 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Player } from '../../core/models/player.model';
 import { Room } from '../../core/models/room.model';
 import { PickemsService } from '../../core/services/pickems.service';
@@ -89,6 +89,9 @@ import { RoomService } from '../../core/services/room.service';
                   <a class="btn-secondary" [routerLink]="['/bracket']" [queryParams]="{ roomId: room.id }">Bracket</a>
                   <a class="btn-secondary" [routerLink]="['/leaderboard']" [queryParams]="{ roomId: room.id }">Leaderboard</a>
                   <a class="btn-secondary" [routerLink]="['/rooms', room.id, 'members']">Members</a>
+                  <button class="btn-secondary" type="button" [disabled]="busy()" (click)="copyInviteLink(room)">
+                    {{ copiedRoomId() === room.id ? 'Copied' : 'Share link' }}
+                  </button>
                   @if (isRoomCreator(room)) {
                     <button
                       class="inline-flex items-center justify-center rounded-md border border-red-300/30 bg-red-400/10 px-4 py-2 font-bold text-red-100 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
@@ -114,6 +117,7 @@ export class RoomsComponent implements OnInit {
   readonly error = signal('');
   readonly rooms = signal<Room[]>([]);
   readonly pendingRoom = signal<Room | null>(null);
+  readonly copiedRoomId = signal('');
   roomName = '';
   roomCode = '';
   private player: Player | null = null;
@@ -123,17 +127,24 @@ export class RoomsComponent implements OnInit {
     private readonly roomService: RoomService,
     private readonly pickemsService: PickemsService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
   ) {}
 
   async ngOnInit(): Promise<void> {
     try {
       this.player = await this.playerService.loadStoredPlayer();
       if (!this.player) {
-        await this.router.navigate(['/onboarding'], { queryParams: { returnUrl: '/rooms' } });
+        await this.router.navigate(['/onboarding'], { queryParams: { returnUrl: this.router.url } });
         return;
       }
 
-      await this.reloadRooms();
+      const inviteCode = this.route.snapshot.queryParamMap.get('join');
+      if (inviteCode) {
+        this.roomCode = inviteCode;
+        await this.acceptInviteLink(inviteCode);
+      } else {
+        await this.reloadRooms();
+      }
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : 'Could not load rooms.');
     } finally {
@@ -163,6 +174,27 @@ export class RoomsComponent implements OnInit {
       this.roomCode = '';
       await this.handleJoinedRoom(room);
     });
+  }
+
+  async copyInviteLink(room: Room): Promise<void> {
+    const link = this.inviteLink(room);
+
+    try {
+      await navigator.clipboard.writeText(link);
+      this.copiedRoomId.set(room.id);
+      window.setTimeout(() => {
+        if (this.copiedRoomId() === room.id) {
+          this.copiedRoomId.set('');
+        }
+      }, 1800);
+    } catch {
+      this.error.set('Could not copy the invite link. The room code is still visible if you want to share it manually.');
+    }
+  }
+
+  inviteLink(room: Room): string {
+    const inviteUrl = this.router.serializeUrl(this.router.createUrlTree(['/rooms'], { queryParams: { join: room.code } }));
+    return `${window.location.origin}${inviteUrl}`;
   }
 
   async copyGlobalToRoom(): Promise<void> {
@@ -216,6 +248,28 @@ export class RoomsComponent implements OnInit {
 
   isRoomCreator(room: Room): boolean {
     return this.player?.id === room.created_by_player_id;
+  }
+
+  private async acceptInviteLink(code: string): Promise<void> {
+    if (!this.player) {
+      return;
+    }
+
+    await this.runRoomAction(async () => {
+      const room = await this.roomService.joinRoom(code, this.player!.id);
+      this.roomCode = '';
+      await this.clearInviteQuery();
+      await this.handleJoinedRoom(room);
+    });
+  }
+
+  private async clearInviteQuery(): Promise<void> {
+    await this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { join: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   private async runRoomAction(action: () => Promise<void>): Promise<void> {
