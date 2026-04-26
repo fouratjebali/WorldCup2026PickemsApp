@@ -27,6 +27,11 @@ export const routes: Routes = [
     title: 'Rooms',
   },
   {
+    path: 'rooms/:roomId/members',
+    loadComponent: () => import('./features/rooms/room-members.component').then((m) => m.RoomMembersComponent),
+    title: 'Room Members',
+  },
+  {
     path: 'rooms/:roomId/members/:playerId/pickems',
     loadComponent: () => import('./features/rooms/member-pickems.component').then((m) => m.MemberPickemsComponent),
     title: 'Member Pickems',
